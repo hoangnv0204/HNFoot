@@ -1,0 +1,11 @@
+# Chứa API Key cá nhân - KHÔNG BAO GIỜ push file này lên Git
+.env
+*.env
+.streamlit/secrets.toml
+
+# Python cache & venv
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
