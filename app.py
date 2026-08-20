@@ -76,6 +76,11 @@ with st.sidebar:
         "📍 Khu vực (Quận):",
         ["Tất cả Hà Nội", "Hoàn Kiếm", "Ba Đình", "Đống Đa", "Hai Bà Trưng", "Cầu Giấy", "Tây Hồ", "Thanh Xuân", "Nam Từ Liêm", "Bắc Từ Liêm", "Hoàng Mai", "Long Biên", "Hà Đông"]
     )
+
+    selected_category = st.selectbox(
+        "🍜 Thể loại món ăn:",
+        ["Tất cả loại món", "Bún / Phở / Miến", "Lẩu / Nướng", "Ốc / Ăn vặt", "Steak / Món Âu", "Cơm / Món Việt", "Trà chanh / Cafe / Tráng miệng"]
+    )
     
     selected_vibe = st.selectbox(
         "✨ Dịp / Phong cách:",
@@ -86,6 +91,8 @@ with st.sidebar:
         "💰 Mức ngân sách / người:",
         options=["Mọi mức giá", "Sinh viên (< 50k)", "Bình dân (50k - 150k)", "Khá (150k - 300k)", "Sang chảnh (> 300k)"]
     )
+
+    btn_filter_search = st.button("✨ Khám Phá Theo Bộ Lọc", use_container_width=True, type="primary")
     
     st.markdown("---")
     
@@ -106,8 +113,18 @@ with st.sidebar:
         st.caption("Chưa có quán nào trong danh sách yêu thích.")
 
 
+# Theo dõi sự thay đổi của bộ lọc để tự động gợi ý
+current_filter_state = (selected_district, selected_category, selected_vibe, selected_budget)
+filter_changed = False
+
+if "prev_filter_state" in st.session_state:
+    if st.session_state.prev_filter_state != current_filter_state:
+        filter_changed = True
+st.session_state.prev_filter_state = current_filter_state
+
+
 # --- HÀM GỌI AI PHÂN TÍCH (XỬ LÝ ẨN TRONG BACKGROUND) ---
-def search_food_with_ai(query_text, district, vibe, budget, api_key_val, model_name="gemini-3.6-flash"):
+def search_food_with_ai(query_text, district, category, vibe, budget, api_key_val, model_name="gemini-3.6-flash"):
     models_to_try = [model_name]
     fallback_candidates = ["gemini-3.6-flash"]
     for m in fallback_candidates:
@@ -128,15 +145,16 @@ def search_food_with_ai(query_text, district, vibe, budget, api_key_val, model_n
 
     prompt = f"""
     Bạn là một chuyên gia ẩm thực bản địa sành sỏi tại Hà Nội.
-    Nhiệm vụ của bạn: Tìm kiếm và tổng hợp các quán ăn ngon, chuẩn vị, nổi tiếng tại Hà Nội theo yêu cầu sau:
+    Nhiệm vụ của bạn: Tìm kiếm và tổng hợp các quán ăn ngon, chuẩn vị, nổi tiếng tại Hà Nội theo các bộ lọc tiêu chí sau:
     
-    - Món ăn / Yêu cầu tìm kiếm: "{query_text}"
+    - Từ khóa / Món yêu cầu: "{query_text if query_text.strip() else 'Các quán ăn nổi tiếng chuẩn vị'}"
     - Khu vực ưu tiên: {district}
+    - Thể loại món ăn: {category}
     - Dịp / Không khí: {vibe}
     - Ngân sách dự kiến: {budget}
 
     Yêu cầu quan trọng:
-    1. Tìm từ 3 đến 6 quán ăn ngon, chuẩn vị, chất lượng thật sự được người bản địa (local) và review đánh giá cao.
+    1. Tìm từ 3 đến 6 quán ăn ngon, chuẩn vị, chất lượng thật sự được người bản địa (local) và review đánh giá cao phù hợp với các bộ lọc trên.
     2. Tóm tắt trung thực cả điểm khen và điểm lưu ý/hạn chế (nếu có: đông phải xếp hàng, chỗ để xe hẹp,...).
     3. Xuất kết quả bắt buộc ở định dạng JSON thuần túy (không markdown bọc ngoài, không text thừa) là một danh sách các Object theo mẫu:
     [
@@ -189,17 +207,17 @@ def search_food_with_ai(query_text, district, vibe, budget, api_key_val, model_n
 
 # --- GIAO DIỆN CHÍNH ---
 st.markdown('<div class="main-title">🍲 Hà Nội Food AI</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Khám phá quán ăn ngon chuẩn vị theo review thời gian thực từ Google Maps, TikTok & Facebook</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Tự động gợi ý quán ăn ngon chuẩn vị theo Bộ lọc hoặc Tìm kiếm tùy chọn</div>', unsafe_allow_html=True)
 
-# Ô tìm kiếm chính
+# Ô tìm kiếm tùy chọn
 user_query = st.text_input(
-    "Nhập món ăn hoặc từ khóa muốn tìm hôm nay:",
-    placeholder="Ví dụ: bún chả que tre nướng, phở bò sốt vang phố cổ, steak hẹn hò ấm cúng...",
+    "Nhập món ăn hoặc từ khóa muốn tìm (Tùy chọn - Không bắt buộc):",
+    placeholder="Ví dụ: bún chả que tre nướng, phở bò sốt vang phố cổ, steak hẹn hò ấm cúng... (Hoặc chỉ cần chọn bộ lọc bên trái)",
     label_visibility="collapsed"
 )
 
 # Gợi ý nhanh
-st.caption("💡 **Gợi ý tìm nhanh:**")
+st.caption("💡 **Gợi ý món hot (Bấm để xem ngay):**")
 tag_cols = st.columns(5)
 quick_tags = [
     "🍜 Phở bò sốt vang phố cổ",
@@ -217,7 +235,7 @@ for i, tag in enumerate(quick_tags):
 
 col_btn1, col_btn2 = st.columns([3, 1])
 with col_btn1:
-    btn_search = st.button("🔍 Tìm Kiếm Ngay", use_container_width=True, type="primary")
+    btn_search = st.button("🔍 Khám Phá Quán Ăn", use_container_width=True, type="primary")
 with col_btn2:
     btn_random = st.button("🎲 Gợi Ý Bất Kỳ", use_container_width=True)
 
@@ -231,7 +249,7 @@ if btn_random:
         "Nhà hàng pasta steak phong cách vintage ấm cúng để hẹn hò"
     ]
     user_query = random.choice(random_prompts)
-    st.info(f"💡 AI đang tìm gợi ý: **{user_query}**")
+    st.info(f"💡 AI đang gợi ý món: **{user_query}**")
     btn_search = True
 
 if selected_tag:
@@ -239,15 +257,27 @@ if selected_tag:
     st.info(f"💡 Bạn đã chọn: **{user_query}**")
     btn_search = True
 
+# Kích hoạt tìm kiếm nếu nhấn nút, chọn tag, bấm nút bộ lọc sidebar, hoặc đổi bộ lọc
+should_search = btn_search or btn_filter_search or filter_changed
+
+# Tự động tìm kiếm ở lần load đầu tiên nếu chưa có kết quả
+if "has_initial_searched" not in st.session_state:
+    st.session_state.has_initial_searched = True
+    should_search = True
+
 # Thực hiện tìm kiếm
-if btn_search:
+if should_search:
     if not api_key:
         st.error("⚠️ Chưa nhận diện được API Key. Vui lòng mở mục **⚙️ Cấu hình API Key** ở menu bên trái để dán API Key hoặc tạo tệp `.env`.")
-    elif not user_query.strip():
-        st.warning("⚠️ Vui lòng nhập món ăn hoặc chọn gợi ý bạn muốn tìm!")
     else:
-        with st.spinner("🤖 AI đang tổng hợp các review mới nhất trên TikTok, Google Maps và Facebook..."):
-            results = search_food_with_ai(user_query, selected_district, selected_vibe, selected_budget, api_key, default_model)
+        filter_summary = f"Quận: {selected_district} | Thể loại: {selected_category} | Phong cách: {selected_vibe} | Giá: {selected_budget}"
+        if user_query.strip():
+            spinner_msg = f"🤖 AI đang rà soát gợi ý cho **'{user_query}'** ({filter_summary})..."
+        else:
+            spinner_msg = f"🤖 AI đang tự động tổng hợp gợi ý quán ăn theo bộ lọc (**{filter_summary}**)..."
+            
+        with st.spinner(spinner_msg):
+            results = search_food_with_ai(user_query, selected_district, selected_category, selected_vibe, selected_budget, api_key, default_model)
             if results:
                 st.session_state.search_results = results
 
