@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 
-# Tắt cảnh báo không cần thiết từ SDK
+# Tắt cảnh báo từ SDK
 warnings.filterwarnings("ignore")
 
 # Tải biến môi trường từ tệp .env (nếu có)
@@ -22,9 +22,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS tạo giao diện hiện đại & thân thiện
+# Custom CSS tạo giao diện người dùng thuần túy, ẩn các thành phần thừa
 st.markdown("""
 <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
     .main-title {
         font-size: 2.2rem;
         font-weight: 800;
@@ -47,10 +50,10 @@ if "favorites" not in st.session_state:
 if "search_results" not in st.session_state:
     st.session_state.search_results = []
 
-# Đọc cấu hình từ môi trường / Secrets
-env_api_key = os.getenv("GEMINI_API_KEY", "").strip()
-if not env_api_key and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
-    env_api_key = st.secrets["GEMINI_API_KEY"].strip()
+# Đọc cấu hình ngầm từ môi trường / Streamlit Secrets (Ẩn hoàn toàn khỏi UI)
+api_key = os.getenv("GEMINI_API_KEY", "").strip()
+if not api_key and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+    api_key = st.secrets["GEMINI_API_KEY"].strip()
 
 default_model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
 
@@ -58,19 +61,6 @@ default_model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
 # --- SIDEBAR: BỘ LỌC TÌM KIẾM DÀNH CHO NGƯỜI DÙNG ---
 with st.sidebar:
     st.header("🎯 Bộ Lọc Tìm Kiếm")
-    
-    # Mục cấu hình thu gọn (chỉ mở ra khi chưa có API Key)
-    with st.expander("⚙️ Cấu hình API Key", expanded=not bool(env_api_key)):
-        user_api_key = st.text_input(
-            "Gemini API Key:",
-            value=env_api_key,
-            type="password",
-            help="Nhập API Key cá nhân từ Google AI Studio nếu ứng dụng chưa tự nhận chìa khóa."
-        )
-        if env_api_key:
-            st.caption("✅ Đã sẵn sàng API Key từ Server / .env")
-
-    api_key = user_api_key if user_api_key else env_api_key
 
     selected_district = st.selectbox(
         "📍 Khu vực (Quận):",
@@ -123,14 +113,9 @@ def search_food_with_ai(query_text, district, category, vibe, budget, api_key_va
         if m not in models_to_try:
             models_to_try.append(m)
 
-    debug_logs = []
-    masked_key = api_key_val[:6] + "..." + api_key_val[-4:] if len(api_key_val) > 10 else "Chưa có / Rỗng"
-    debug_logs.append(f"🔑 **API Key đang dùng:** `{masked_key}`")
-
-    # Chiến lược 2 chế độ: 1. Có Google Search Grounding -> 2. Cơ sở tri thức AI (khi bị Quota 429)
     configs_to_try = [
-        ("Chế độ 1: Tìm kiếm mạng thời gian thực (Google Search Grounding)", [{"google_search": {}}]),
-        ("Chế độ 2: Tri thức AI bản địa tích hợp (No Search Tool)", None)
+        ("Chế độ 1: Grounding", [{"google_search": {}}]),
+        ("Chế độ 2: Knowledge Base", None)
     ]
 
     client = genai.Client(api_key=api_key_val)
@@ -166,7 +151,6 @@ def search_food_with_ai(query_text, district, category, vibe, budget, api_key_va
 
     for current_model in models_to_try:
         for mode_title, tools_config in configs_to_try:
-            # Thử tối đa 2 lần đối với lỗi quá tải tạm thời (503 UNAVAILABLE)
             for attempt in range(2):
                 try:
                     config_kwargs = {"temperature": 0.3}
@@ -187,22 +171,14 @@ def search_food_with_ai(query_text, district, category, vibe, budget, api_key_va
                     return json.loads(cleaned_json)
                 except Exception as e:
                     err_str = str(e)
-                    debug_logs.append(f"❌ Mô hình `{current_model}` ({mode_title} - Thử {attempt+1}) thất bại: `{err_str}`")
                     print(f"[DEBUG_LOG] {current_model} ({mode_title}) attempt {attempt+1} failed: {err_str}")
-                    
-                    # Nếu gặp lỗi 503 (Server quá tải tạm thời), đợi 1 giây rồi thử lại
                     if "503" in err_str or "UNAVAILABLE" in err_str:
                         time.sleep(1)
                         continue
                     else:
-                        # Với lỗi 429 Quota hoặc 404, chuyển sang chế độ/mô hình tiếp theo ngay
                         break
 
-    st.error("⚠️ **Hệ thống AI đang quá tải lượt gọi tạm thời từ Google. Vui lòng bấm thử lại sau vài giây!**")
-
-    with st.expander("🛠️ Chi tiết nhật ký lỗi (Debug Logs)", expanded=True):
-        for log in debug_logs:
-            st.markdown(f"- {log}")
+    st.error("⚠️ **Hệ thống AI đang bận hoặc quá tải tạm thời từ Google. Vui lòng bấm thử lại sau vài giây!**")
     return None
 
 
@@ -258,19 +234,19 @@ if selected_tag:
     st.info(f"💡 Bạn đã chọn: **{user_query}**")
     btn_search = True
 
-# Chỉ kích hoạt tìm kiếm khi người dùng BẤM NÚT chủ động (không tự động auto-search)
+# Chỉ kích hoạt tìm kiếm khi người dùng BẤM NÚT chủ động
 should_search = btn_search or btn_filter_search
 
 # Thực hiện tìm kiếm
 if should_search:
     if not api_key:
-        st.error("⚠️ Chưa nhận diện được API Key. Vui lòng mở mục **⚙️ Cấu hình API Key** ở menu bên trái để dán API Key hoặc tạo tệp `.env`.")
+        st.error("⚠️ Hệ thống đang bảo trì kết nối AI. Vui lòng thử lại sau!")
     else:
         filter_summary = f"Quận: {selected_district} | Thể loại: {selected_category} | Phong cách: {selected_vibe} | Giá: {selected_budget}"
         if user_query.strip():
             spinner_msg = f"🤖 AI đang rà soát gợi ý cho **'{user_query}'** ({filter_summary})..."
         else:
-            spinner_msg = f"🤖 AI đang tự động tổng hợp gợi ý quán ăn theo bộ lọc (**{filter_summary}**)..."
+            spinner_msg = f"🤖 AI đang tổng hợp gợi ý quán ăn theo bộ lọc (**{filter_summary}**)..."
             
         with st.spinner(spinner_msg):
             results = search_food_with_ai(user_query, selected_district, selected_category, selected_vibe, selected_budget, api_key, default_model)
