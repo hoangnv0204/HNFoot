@@ -2,10 +2,14 @@ import os
 import json
 import re
 import random
+import warnings
 import streamlit as st
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
+
+# Tắt cảnh báo không cần thiết từ SDK
+warnings.filterwarnings("ignore")
 
 # Tải biến môi trường từ tệp .env (nếu có)
 load_dotenv(override=True)
@@ -145,14 +149,14 @@ def search_food_with_ai(query_text, district, vibe, budget, api_key_val, model_n
             ]
             """
             
-            response = client.models.generate_content(
+            chat = client.chats.create(
                 model=current_model,
-                contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.3,
                     tools=[{"google_search": {}}]
                 )
             )
+            response = chat.send_message(prompt)
             
             raw_text = response.text.strip()
             cleaned_json = re.sub(r"^```json\s*", "", raw_text)
