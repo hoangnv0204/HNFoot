@@ -116,6 +116,10 @@ def search_food_with_ai(query_text, district, vibe, budget, api_key_val, model_n
 
     last_error = None
     has_quota_error = False
+    debug_logs = []
+
+    masked_key = api_key_val[:6] + "..." + api_key_val[-4:] if len(api_key_val) > 10 else "Chưa có / Rỗng"
+    debug_logs.append(f"🔑 **API Key đang dùng:** `{masked_key}`")
 
     for current_model in models_to_try:
         try:
@@ -166,16 +170,22 @@ def search_food_with_ai(query_text, district, vibe, budget, api_key_val, model_n
             return json.loads(cleaned_json)
         except Exception as e:
             err_str = str(e)
+            debug_logs.append(f"❌ Mô hình `{current_model}` thất bại: `{err_str}`")
+            print(f"[DEBUG_LOG] Model {current_model} failed: {err_str}")
             if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
                 has_quota_error = True
             last_error = e
             continue
 
-    # Thông báo lỗi thân thiện cho người dùng cuối
+    # Thông báo lỗi và hiển thị Chi tiết nhật ký lỗi
     if has_quota_error:
-        st.error("⏳ **Hệ thống AI đang quá tải lượt tìm kiếm.** Vui lòng thử lại sau 1-2 phút!")
+        st.error("⏳ **Hệ thống AI đang quá tải lượt tìm kiếm (Quota / Rate Limit 429).** Vui lòng thử lại sau 1-2 phút!")
     else:
-        st.error("⚠️ **Không thể kết nối dịch vụ AI vào lúc này.** Vui lòng thử lại sau!")
+        st.error("⚠️ **Không thể kết nối dịch vụ AI vào lúc này.**")
+
+    with st.expander("🛠️ Chi tiết nhật ký lỗi (Debug Logs)", expanded=True):
+        for log in debug_logs:
+            st.markdown(f"- {log}")
     return None
 
 
