@@ -12,8 +12,16 @@ def render_tour_guide_sidebar():
         ["3 ngày 2 đêm", "2 ngày 1 đêm", "1 ngày (Đi trong ngày)", "4 ngày 3 đêm", "5 ngày 4 đêm"]
     )
     selected_time_guide = st.selectbox(
-        "📅 Thời điểm đi:",
+        "📅 Thời điểm đi (Mùa):",
         ["Tự động (Theo tháng 8 hiện tại)", "Tháng này (Thời tiết thật)", "Mùa Xuân", "Mùa Hè", "Mùa Thu", "Mùa Đông"]
+    )
+    selected_departure_time = st.selectbox(
+        "🌅 Khung giờ xuất phát:",
+        ["Tự động (Giờ tối ưu)", "Buổi Sáng (5h - 9h)", "Buổi Chiều (12h - 15h)", "Buổi Tối / Đêm (18h - 22h)"]
+    )
+    selected_preferred_vehicle = st.selectbox(
+        "🚗 Phương tiện mong muốn:",
+        ["Tự động gợi ý tốt nhất", "Xe khách Limousine / Giường nằm", "Tàu hỏa hỏa tốc", "Máy bay", "Xe máy phượt", "Ô tô cá nhân / Tự lái"]
     )
     selected_companion_guide = st.selectbox(
         "👥 Bạn đồng hành:",
@@ -24,10 +32,19 @@ def render_tour_guide_sidebar():
         options=["Tiết kiệm", "Phổ thông / Tiêu chuẩn", "Sang chảnh / Resort"]
     )
     btn_filter_search = st.button("🧳 Lên Cẩm Nang Du Lịch", use_container_width=True, type="primary")
-    return selected_origin, selected_duration_guide, selected_time_guide, selected_companion_guide, selected_budget_guide, btn_filter_search
+    return (
+        selected_origin,
+        selected_duration_guide,
+        selected_time_guide,
+        selected_departure_time,
+        selected_preferred_vehicle,
+        selected_companion_guide,
+        selected_budget_guide,
+        btn_filter_search
+    )
 
 
-def render_tour_guide_main(selected_origin, selected_duration_guide, selected_time_guide, selected_companion_guide, selected_budget_guide, btn_filter_search, api_key, default_model):
+def render_tour_guide_main(selected_origin, selected_duration_guide, selected_time_guide, selected_departure_time, selected_preferred_vehicle, selected_companion_guide, selected_budget_guide, btn_filter_search, api_key, default_model):
     st.markdown('<div class="sub-title">Cẩm nang du lịch trọn gói: Gợi ý Đặt xe, Top Homestay ok nhất, Outfit & Lịch trình chi tiết tiện đường</div>', unsafe_allow_html=True)
 
     col_loc1, col_loc2 = st.columns(2)
@@ -95,7 +112,7 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
                     origin_input,
                     dest_input,
                     selected_duration_guide,
-                    selected_time_guide,
+                    f"Mùa: {selected_time_guide} | Xuất phát: {selected_departure_time} | Phương tiện mong muốn: {selected_preferred_vehicle}",
                     f"{selected_companion_guide} - Ngân sách: {selected_budget_guide}",
                     api_key,
                     default_model
@@ -176,6 +193,8 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
                             st.caption(f"🚏 **Đường đi tiện lợi:** {act.get('route_note')}")
                         if act.get('pro_tip'):
                             st.info(f"💡 **Mẹo local:** {act.get('pro_tip')}")
+                        if act.get('outfit_suggestion'):
+                            st.success(f"👗 **Gợi ý outfit & tone màu:** {act.get('outfit_suggestion')}")
                             
                         maps_url = f"https://www.google.com/maps/search/?api=1&query={act.get('title', '')}+{act.get('location', '')}".replace(" ", "+")
                         st.link_button("🗺️ Mở vị trí Google Maps", maps_url)
@@ -195,3 +214,124 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
                         st.markdown(f"💰 `{food.get('price_range', '')}`")
                         maps_url = f"https://www.google.com/maps/search/?api=1&query={food.get('name', '')}+{food.get('address', '')}".replace(" ", "+")
                         st.link_button("🗺️ Mở Google Maps", maps_url, use_container_width=True)
+
+        # Google Docs Export Section (5 Cột)
+        st.markdown("---")
+        st.markdown("### 📝 Tạo Document Google Docs (Bảng Cẩm Nang Du Lịch 5 Cột)")
+        st.caption("Xuất toàn bộ lịch trình chuyến đi thành bảng chuẩn 5 cột (`Thời gian`, `Lịch Trình`, `Google Maps`, `Note`, `Gợi ý tone màu quần áo`) sẵn sàng để dán vào Google Docs hoặc tải về tệp Document.")
+
+        outfit_general = guide.get("outfit_guide", {})
+        gen_colors = ", ".join(outfit_general.get("recommended_colors", []))
+        gen_style = outfit_general.get("style_name", "")
+        fallback_outfit = f"Tone: {gen_colors} ({gen_style})" if gen_colors else gen_style
+
+        table_rows_html = []
+        day_list = guide.get("day_by_day_itinerary", [])
+        for day_idx, day_item in enumerate(day_list):
+            day_title = day_item.get("day_title", f"Ngày {day_idx+1}")
+            activities = day_item.get("activities", [])
+            for act_idx, act in enumerate(activities):
+                time_str = f"<b>{day_title.split(':')[0]}</b><br/>{act.get('time', '')}"
+                title = act.get('title', '')
+                loc = act.get('location', '')
+                desc = act.get('description', '')
+                itinerary_str = f"<b>{title}</b><br/>📍 {loc}<br/><i>{desc}</i>"
+                
+                maps_url = f"https://www.google.com/maps/search/?api=1&query={title}+{loc}".replace(" ", "+")
+                maps_link_html = f'<a href="{maps_url}" target="_blank" style="color: #1a73e8; font-weight: bold;">🗺️ Xem Maps</a>'
+                
+                notes = []
+                if act.get('route_note'):
+                    notes.append(f"🚏 {act.get('route_note')}")
+                if act.get('pro_tip'):
+                    notes.append(f"💡 {act.get('pro_tip')}")
+                note_str = "<br/>".join(notes) if notes else "—"
+
+                outfit_str = act.get('outfit_suggestion') or fallback_outfit or "Trang phục năng động, thoải mái"
+
+                table_rows_html.append(f"""
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">{time_str}</td>
+                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">{itinerary_str}</td>
+                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; text-align: center; font-size: 13px;">{maps_link_html}</td>
+                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">{note_str}</td>
+                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">👗 {outfit_str}</td>
+                </tr>
+                """)
+
+        table_body = "\n".join(table_rows_html)
+        full_html_table = f"""
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; color: #333333;">
+            <thead>
+                <tr style="background-color: #1a73e8; color: #ffffff; text-align: center; font-weight: bold; font-size: 14px;">
+                    <th style="width: 15%; padding: 10px; border: 1px solid #1557b0;">Thời gian</th>
+                    <th style="width: 30%; padding: 10px; border: 1px solid #1557b0;">Lịch Trình</th>
+                    <th style="width: 15%; padding: 10px; border: 1px solid #1557b0;">Google Maps</th>
+                    <th style="width: 20%; padding: 10px; border: 1px solid #1557b0;">Note</th>
+                    <th style="width: 20%; padding: 10px; border: 1px solid #1557b0;">Gợi ý tone màu quần áo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {table_body}
+            </tbody>
+        </table>
+        """
+
+        full_doc_content = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>{guide.get('trip_title', 'Cẩm Nang Du Lịch')}</title>
+</head>
+<body style="font-family: Arial, sans-serif; padding: 20px;">
+<h2 style="color: #1a73e8;">🧳 {guide.get('trip_title', 'Cẩm Nang Du Lịch')}</h2>
+<p><b>🌤️ Thời tiết:</b> {guide.get('weather_vibe', '')}</p>
+<p><b>💰 Mức chi phí dự kiến:</b> {guide.get('estimated_total_cost', '')}</p>
+<br/>
+{full_html_table}
+</body>
+</html>
+"""
+
+        with st.expander("👁️ Xem trước Bảng Google Docs (5 Cột)", expanded=True):
+            st.markdown(full_html_table, unsafe_allow_html=True)
+
+        col_doc1, col_doc2, col_doc3 = st.columns([2, 2, 2])
+        with col_doc1:
+            st.link_button("🔗 Mở Google Docs Mới (docs.new)", "https://docs.new", use_container_width=True, type="primary")
+        with col_doc2:
+            st.download_button(
+                label="📥 Tải tệp Document (.doc)",
+                data=full_doc_content.encode("utf-8"),
+                file_name=f"Cam_Nang_Du_Lich_{dest_input}.doc",
+                mime="application/msword",
+                use_container_width=True
+            )
+        with col_doc3:
+            import streamlit.components.v1 as components
+            escaped_html = full_html_table.replace("`", "\\`").replace("\n", " ")
+            copy_html = f"""
+            <script>
+            function copyDocsTable() {{
+                const tableHtml = `{escaped_html}`;
+                const blobHtml = new Blob([tableHtml], {{ type: 'text/html' }});
+                const blobText = new Blob(['Cẩm Nang Du Lịch 5 Cột'], {{ type: 'text/plain' }});
+                const item = new ClipboardItem({{
+                    'text/html': blobHtml,
+                    'text/plain': blobText
+                }});
+                navigator.clipboard.write([item]).then(function() {{
+                    document.getElementById('status').innerText = '✅ Đã chép bảng 5 cột! Hãy mở Docs.new và bấm Ctrl+V để dán!';
+                }}).catch(function(err) {{
+                    document.getElementById('status').innerText = '⚠️ Đã copy text! Bạn hãy dán vào Google Docs.';
+                    navigator.clipboard.writeText(tableHtml);
+                }});
+            }}
+            </script>
+            <button onclick="copyDocsTable()" style="width:100%; padding: 9px 16px; background-color:#34a853; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:14px;">
+                📋 Sao Chép Bảng Định Dạng
+            </button>
+            <div id="status" style="margin-top:6px; font-size:12px; color:#1b5e20; font-weight:bold;"></div>
+            """
+            components.html(copy_html, height=75)
+
