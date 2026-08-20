@@ -16,13 +16,13 @@ load_dotenv(override=True)
 
 # Cấu hình trang Streamlit
 st.set_page_config(
-    page_title="Hà Nội Food AI — Khám Phá Ẩm Thực Hà Nội",
-    page_icon="🍲",
+    page_title="Hà Nội Food & Travel AI — Khám Phá Hà Nội",
+    page_icon="🗺️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS tạo giao diện người dùng thuần túy, ẩn các thành phần thừa
+# Custom CSS tạo giao diện hiện đại & ẩn các thành phần thừa
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;}
@@ -51,16 +51,28 @@ st.markdown("""
 # Khởi tạo Session State
 if "favorites" not in st.session_state:
     st.session_state.favorites = []
-if "search_results" not in st.session_state:
-    st.session_state.search_results = []
+if "food_results" not in st.session_state:
+    st.session_state.food_results = []
+if "travel_results" not in st.session_state:
+    st.session_state.travel_results = []
 
-# Đọc cấu hình ngầm từ môi trường / Streamlit Secrets (Ẩn hoàn toàn khỏi UI)
+# Đọc cấu hình ngầm từ môi trường / Streamlit Secrets
 api_key = os.getenv("GEMINI_API_KEY", "").strip()
 if not api_key and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"].strip()
 
 default_model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
 
+
+# --- CHỌN MENU DANH MỤC CHÍNH ---
+st.markdown('<div class="main-title">🗺️ Khám Phá Hà Nội AI</div>', unsafe_allow_html=True)
+app_mode = st.radio(
+    "Chọn danh mục khám phá:",
+    options=["🍲 Khám Phá Ẩm Thực", "🎡 Địa Điểm Đi Chơi & Giải Trí"],
+    horizontal=True
+)
+
+st.markdown("---")
 
 # --- SIDEBAR: BỘ LỌC TÌM KIẾM DÀNH CHO NGƯỜI DÙNG ---
 with st.sidebar:
@@ -71,32 +83,51 @@ with st.sidebar:
         ["Tất cả Hà Nội", "Hoàn Kiếm", "Ba Đình", "Đống Đa", "Hai Bà Trưng", "Cầu Giấy", "Tây Hồ", "Thanh Xuân", "Nam Từ Liêm", "Bắc Từ Liêm", "Hoàng Mai", "Long Biên", "Hà Đông"]
     )
 
-    selected_category = st.selectbox(
-        "🍜 Thể loại món ăn:",
-        ["Tất cả loại món", "Bún / Phở / Miến", "Lẩu / Nướng", "Ốc / Ăn vặt", "Steak / Món Âu", "Cơm / Món Việt", "Trà chanh / Cafe / Tráng miệng"]
-    )
-    
-    selected_vibe = st.selectbox(
-        "✨ Dịp / Phong cách:",
-        ["Mọi phong cách", "Local truyền thống / Bình dân", "Hẹn hò lãng mạn / Riêng tư", "Tụ tập bạn bè / Nhậu", "Ăn đêm / Mở muộn", "Ăn vặt / Trà chanh", "Sang trọng / Fine Dining"]
-    )
-    
-    selected_budget = st.select_slider(
-        "💰 Mức ngân sách / người:",
-        options=["Mọi mức giá", "Sinh viên (< 50k)", "Bình dân (50k - 150k)", "Khá (150k - 300k)", "Sang chảnh (> 300k)"]
-    )
+    if app_mode == "🍲 Khám Phá Ẩm Thực":
+        selected_meal = st.selectbox(
+            "⏰ Bữa ăn trong ngày:",
+            ["Mọi bữa ăn", "Bữa sáng (6h - 10h)", "Bữa trưa (10h - 14h)", "Bữa xế / Ăn vặt (14h - 18h)", "Bữa tối (18h - 22h)", "Ăn đêm (Sau 22h)"]
+        )
+        selected_category = st.selectbox(
+            "🍜 Thể loại món ăn:",
+            ["Tất cả loại món", "Bún / Phở / Miến", "Lẩu / Nướng", "Ốc / Ăn vặt", "Steak / Món Âu", "Cơm / Món Việt", "Trà chanh / Cafe / Tráng miệng"]
+        )
+        selected_vibe = st.selectbox(
+            "✨ Dịp / Phong cách:",
+            ["Mọi phong cách", "Local truyền thống / Bình dân", "Hẹn hò lãng mạn / Riêng tư", "Tụ tập bạn bè / Nhậu", "Ăn đêm / Mở muộn", "Sang trọng / Fine Dining"]
+        )
+        selected_budget = st.select_slider(
+            "💰 Mức ngân sách / người:",
+            options=["Mọi mức giá", "Sinh viên (< 50k)", "Bình dân (50k - 150k)", "Khá (150k - 300k)", "Sang chảnh (> 300k)"]
+        )
+    else: # Địa Điểm Đi Chơi
+        selected_activity_type = st.selectbox(
+            "🎭 Loại hình đi chơi / Giải trí:",
+            ["Tất cả loại hình", "Cafe view đẹp / Check-in", "Công viên / Không gian xanh", "Bảo tàng / Di tích lịch sử", "Khu vui chơi / Game Center", "Phố bộ hành / Chợ đêm", "Hồ Tây / Hẹn hò lãng mạn", "Bar / Pub / Chill đêm"]
+        )
+        selected_companion = st.selectbox(
+            "👥 Đối tượng đi cùng:",
+            ["Mọi đối tượng", "Đi một mình / Yên tĩnh", "Hẹn hò cặp đôi", "Nhóm bạn đông người", "Gia đình có trẻ nhỏ"]
+        )
+        selected_cost = st.select_slider(
+            "💰 Mức chi phí dự kiến:",
+            options=["Mọi mức giá", "Miễn phí (0đ)", "Tiết kiệm (< 50k)", "Vừa phải (50k - 200k)", "Cao cấp (> 200k)"]
+        )
 
     btn_filter_search = st.button("✨ Khám Phá Theo Bộ Lọc", use_container_width=True, type="primary")
     
     st.markdown("---")
     
-    # Danh sách quán đã lưu
-    st.subheader(f"⭐ Quán Đã Lưu ({len(st.session_state.favorites)})")
+    # Danh sách đã lưu
+    st.subheader(f"⭐ Đã Lưu ({len(st.session_state.favorites)})")
     if st.session_state.favorites:
         for idx, fav in enumerate(st.session_state.favorites):
             with st.expander(f"**{idx+1}. {fav['name']}** ({fav.get('district', '')})"):
                 st.caption(f"📍 Địa chỉ: {fav.get('address', '')}")
-                st.caption(f"🍽️ Món ngon: {fav.get('signature_dishes', '')}")
+                if "signature_dishes" in fav:
+                    st.caption(f"🍽️ Món ngon: {fav.get('signature_dishes', '')}")
+                elif "signature_activities" in fav:
+                    st.caption(f"🎡 Trải nghiệm: {fav.get('signature_activities', '')}")
                 maps_url = f"https://www.google.com/maps/search/?api=1&query={fav.get('name', '')}+{fav.get('address', '')}".replace(" ", "+")
                 st.link_button("🗺️ Mở Google Maps", maps_url, use_container_width=True)
                 
@@ -104,11 +135,11 @@ with st.sidebar:
             st.session_state.favorites = []
             st.rerun()
     else:
-        st.caption("Chưa có quán nào trong danh sách yêu thích.")
+        st.caption("Chưa có địa điểm nào trong danh sách yêu thích.")
 
 
-# --- HÀM GỌI AI PHÂN TÍCH (XỬ LÝ ẨN TRONG BACKGROUND) ---
-def search_food_with_ai(query_text, district, category, vibe, budget, api_key_val, model_name="gemini-3.6-flash"):
+# --- HÀM GỌI AI PHÂN TÍCH (ẨN TRONG BACKGROUND) ---
+def search_ai_recommendations(mode, query_text, district, cat_or_type, extra1, extra2, budget_or_cost, api_key_val, model_name="gemini-3.6-flash"):
     import time
 
     models_to_try = [model_name]
@@ -124,34 +155,65 @@ def search_food_with_ai(query_text, district, category, vibe, budget, api_key_va
 
     client = genai.Client(api_key=api_key_val)
 
-    prompt = f"""
-    Bạn là một chuyên gia ẩm thực bản địa sành sỏi tại Hà Nội.
-    Nhiệm vụ của bạn: Tìm kiếm và tổng hợp các quán ăn ngon, chuẩn vị, nổi tiếng tại Hà Nội theo các bộ lọc tiêu chí sau:
-    
-    - Từ khóa / Món yêu cầu: "{query_text if query_text.strip() else 'Các quán ăn nổi tiếng chuẩn vị'}"
-    - Khu vực ưu tiên: {district}
-    - Thể loại món ăn: {category}
-    - Dịp / Không khí: {vibe}
-    - Ngân sách dự kiến: {budget}
+    if mode == "food":
+        prompt = f"""
+        Bạn là một chuyên gia ẩm thực bản địa sành sỏi tại Hà Nội.
+        Nhiệm vụ của bạn: Tìm kiếm và tổng hợp các quán ăn ngon, chuẩn vị, nổi tiếng tại Hà Nội theo các bộ lọc tiêu chí sau:
+        
+        - Từ khóa / Món yêu cầu: "{query_text if query_text.strip() else 'Các quán ăn nổi tiếng chuẩn vị'}"
+        - Khu vực ưu tiên: {district}
+        - Bữa ăn trong ngày: {extra1}
+        - Thể loại món ăn: {cat_or_type}
+        - Dịp / Không khí: {extra2}
+        - Ngân sách dự kiến: {budget_or_cost}
 
-    Yêu cầu quan trọng:
-    1. Tìm từ 3 đến 6 quán ăn ngon, chuẩn vị, chất lượng thật sự được người bản địa (local) và review đánh giá cao phù hợp với các bộ lọc trên.
-    2. Tóm tắt trung thực cả điểm khen và điểm lưu ý/hạn chế (nếu có: đông phải xếp hàng, chỗ để xe hẹp,...).
-    3. Xuất kết quả bắt buộc ở định dạng JSON thuần túy (không markdown bọc ngoài, không text thừa) là một danh sách các Object theo mẫu:
-    [
-      {{
-        "name": "Tên quán ăn",
-        "district": "Quận (ví dụ: Hoàn Kiếm)",
-        "address": "Địa chỉ cụ thể kèm ngõ/phố",
-        "price_range": "Khoảng giá (VNĐ)",
-        "signature_dishes": "Các món nổi bật nhất định phải thử",
-        "review_summary": "Tóm tắt review từ TikTok/FB/Google (vị nước dùng, độ tươi, phục vụ...)",
-        "pros": "Điểm cộng lớn nhất",
-        "cons": "Điểm trừ hoặc lưu ý khi đến quán (chờ lâu, gửi xe...)",
-        "score": "Điểm đánh giá trung bình (ví dụ: 4.6/5.0)"
-      }}
-    ]
-    """
+        Yêu cầu quan trọng:
+        1. Tìm từ 3 đến 6 quán ăn ngon, chuẩn vị, chất lượng thật sự được người bản địa (local) và review đánh giá cao phù hợp với các bộ lọc trên.
+        2. Tóm tắt trung thực cả điểm khen và điểm lưu ý/hạn chế (nếu có: đông phải xếp hàng, chỗ để xe hẹp,...).
+        3. Xuất kết quả bắt buộc ở định dạng JSON thuần túy (không markdown bọc ngoài, không text thừa) là một danh sách các Object theo mẫu:
+        [
+          {{
+            "name": "Tên quán ăn",
+            "district": "Quận (ví dụ: Hoàn Kiếm)",
+            "address": "Địa chỉ cụ thể kèm ngõ/phố",
+            "price_range": "Khoảng giá (VNĐ)",
+            "signature_dishes": "Các món nổi bật nhất định phải thử",
+            "review_summary": "Tóm tắt review từ TikTok/FB/Google (vị nước dùng, độ tươi, phục vụ...)",
+            "pros": "Điểm cộng lớn nhất",
+            "cons": "Điểm trừ hoặc lưu ý khi đến quán (chờ lâu, gửi xe...)",
+            "score": "Điểm đánh giá trung bình (ví dụ: 4.6/5.0)"
+          }}
+        ]
+        """
+    else: # Travel / Đi chơi
+        prompt = f"""
+        Bạn là một hướng dẫn viên du lịch và chuyên gia trải nghiệm bản địa sành sỏi tại Hà Nội.
+        Nhiệm vụ của bạn: Tìm kiếm và tổng hợp các địa điểm đi chơi, giải trí, check-in hot nhất tại Hà Nội theo các bộ lọc tiêu chí sau:
+        
+        - Từ khóa / Yêu cầu tìm kiếm: "{query_text if query_text.strip() else 'Các địa điểm đi chơi hot nhất'}"
+        - Khu vực ưu tiên: {district}
+        - Loại hình giải trí: {cat_or_type}
+        - Đối tượng đi cùng: {extra1}
+        - Chi phí dự kiến: {budget_or_cost}
+
+        Yêu cầu quan trọng:
+        1. Tìm từ 3 đến 6 địa điểm đi chơi, tham quan, cafe check-in hoặc giải trí thật sự hấp dẫn và nổi tiếng được giới trẻ & local đánh giá cao.
+        2. Tóm tắt trung thực trải nghiệm thực tế, góc sống ảo/hoạt động nên thử và các lưu ý (vé gửi xe, giờ mở cửa, độ đông đúc...).
+        3. Xuất kết quả bắt buộc ở định dạng JSON thuần túy (không markdown bọc ngoài, không text thừa) là một danh sách các Object theo mẫu:
+        [
+          {{
+            "name": "Tên địa điểm đi chơi",
+            "district": "Quận (ví dụ: Tây Hồ)",
+            "address": "Địa chỉ cụ thể",
+            "price_range": "Chi phí / Vé vào cửa (VNĐ)",
+            "signature_activities": "Trải nghiệm / Góc check-in / Hoạt động nhất định phải thử",
+            "review_summary": "Tóm tắt review không khí, không gian và trải nghiệm thực tế",
+            "pros": "Điểm cộng lớn nhất (view đẹp, thoáng mát, sống ảo...)",
+            "cons": "Điểm trừ hoặc lưu ý khi đến (đông cuối tuần, gửi xe xa...)",
+            "score": "Điểm đánh giá trung bình (ví dụ: 4.7/5.0)"
+          }}
+        ]
+        """
 
     for current_model in models_to_try:
         for mode_title, tools_config in configs_to_try:
@@ -186,107 +248,191 @@ def search_food_with_ai(query_text, district, category, vibe, budget, api_key_va
     return None
 
 
-# --- GIAO DIỆN CHÍNH ---
-st.markdown('<div class="main-title">🍲 Hà Nội Food AI</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Chọn bộ lọc bên trái hoặc nhập từ khóa ➔ Bấm nút để khám phá các quán ăn ngon nhất</div>', unsafe_allow_html=True)
+# --- GIAO DIỆN HIỂN THỊ CHÍNH THEO MENU ---
+if app_mode == "🍲 Khám Phá Ẩm Thực":
+    st.markdown('<div class="sub-title">Khám phá các quán ăn ngon chuẩn vị theo bữa ăn, khu vực & ngân sách</div>', unsafe_allow_html=True)
 
-# Ô tìm kiếm tùy chọn
-user_query = st.text_input(
-    "Nhập món ăn hoặc từ khóa muốn tìm (Tùy chọn - Không bắt buộc):",
-    placeholder="Ví dụ: bún chả que tre nướng, phở bò sốt vang phố cổ, steak hẹn hò ấm cúng...",
-    label_visibility="collapsed"
-)
+    user_query = st.text_input(
+        "Nhập món ăn hoặc từ khóa muốn tìm (Tùy chọn):",
+        placeholder="Ví dụ: bún chả que tre nướng, phở bò sốt vang phố cổ, steak hẹn hò ấm cúng...",
+        label_visibility="collapsed"
+    )
 
-# Gợi ý nhanh
-st.caption("💡 **Gợi ý món hot (Bấm để xem ngay):**")
-tag_cols = st.columns(5)
-quick_tags = [
-    "🍜 Phở bò sốt vang phố cổ",
-    "🧆 Bún chả que tre nướng",
-    "🐚 Ốc luộc lá chanh đêm",
-    "🍱 Bún đậu mắm tôm ngon",
-    "🥩 Steak hẹn hò ấm cúng"
-]
-
-selected_tag = None
-for i, tag in enumerate(quick_tags):
-    with tag_cols[i]:
-        if st.button(tag, key=f"tag_{i}", use_container_width=True):
-            selected_tag = tag.split(" ", 1)[1] # Bỏ emoji
-
-col_btn1, col_btn2 = st.columns([3, 1])
-with col_btn1:
-    btn_search = st.button("🔍 Khám Phá Quán Ăn", use_container_width=True, type="primary")
-with col_btn2:
-    btn_random = st.button("🎲 Gợi Ý Bất Kỳ", use_container_width=True)
-
-# Xử lý khi nhấn nút gợi ý ngẫu nhiên
-if btn_random:
-    random_prompts = [
-        "Quán phở bò sốt vang nóng hổi chuẩn vị phố cổ",
-        "Quán ốc luộc lá chanh nước chấm đậm đà đông khách",
-        "Quán nướng vỉa hè sốt me/bơ tỏi ngon rẻ tụ tập bạn bè",
-        "Bánh mì chảo đẫm pate trứng lòng đào cho bữa xế",
-        "Nhà hàng pasta steak phong cách vintage ấm cúng để hẹn hò"
+    st.caption("💡 **Gợi ý món hot (Bấm để xem ngay):**")
+    tag_cols = st.columns(5)
+    quick_tags = [
+        "🍜 Phở bò sốt vang phố cổ",
+        "🧆 Bún chả que tre nướng",
+        "🐚 Ốc luộc lá chanh đêm",
+        "🍱 Bún đậu mắm tôm ngon",
+        "🥩 Steak hẹn hò ấm cúng"
     ]
-    user_query = random.choice(random_prompts)
-    st.info(f"💡 AI đang gợi ý món: **{user_query}**")
-    btn_search = True
+    selected_tag = None
+    for i, tag in enumerate(quick_tags):
+        with tag_cols[i]:
+            if st.button(tag, key=f"food_tag_{i}", use_container_width=True):
+                selected_tag = tag.split(" ", 1)[1]
 
-if selected_tag:
-    user_query = selected_tag
-    st.info(f"💡 Bạn đã chọn: **{user_query}**")
-    btn_search = True
+    col_btn1, col_btn2 = st.columns([3, 1])
+    with col_btn1:
+        btn_search = st.button("🔍 Khám Phá Quán Ăn", use_container_width=True, type="primary")
+    with col_btn2:
+        btn_random = st.button("🎲 Gợi Ý Bất Kỳ", use_container_width=True)
 
-# Chỉ kích hoạt tìm kiếm khi người dùng BẤM NÚT chủ động
-should_search = btn_search or btn_filter_search
+    if btn_random:
+        random_prompts = [
+            "Quán phở bò sốt vang nóng hổi chuẩn vị phố cổ",
+            "Quán ốc luộc lá chanh nước chấm đậm đà đông khách",
+            "Quán nướng vỉa hè sốt me/bơ tỏi ngon rẻ tụ tập bạn bè",
+            "Bánh mì chảo đẫm pate trứng lòng đào cho bữa xế",
+            "Nhà hàng pasta steak phong cách vintage ấm cúng để hẹn hò"
+        ]
+        user_query = random.choice(random_prompts)
+        st.info(f"💡 AI đang gợi ý món: **{user_query}**")
+        btn_search = True
 
-# Thực hiện tìm kiếm
-if should_search:
-    if not api_key:
-        st.error("⚠️ Hệ thống đang bảo trì kết nối AI. Vui lòng thử lại sau!")
-    else:
-        filter_summary = f"Quận: {selected_district} | Thể loại: {selected_category} | Phong cách: {selected_vibe} | Giá: {selected_budget}"
-        if user_query.strip():
-            spinner_msg = f"🤖 AI đang rà soát gợi ý cho **'{user_query}'** ({filter_summary})..."
+    if selected_tag:
+        user_query = selected_tag
+        st.info(f"💡 Bạn đã chọn: **{user_query}**")
+        btn_search = True
+
+    should_search = btn_search or btn_filter_search
+
+    if should_search:
+        if not api_key:
+            st.error("⚠️ Hệ thống đang bảo trì kết nối AI. Vui lòng thử lại sau!")
         else:
-            spinner_msg = f"🤖 AI đang tổng hợp gợi ý quán ăn theo bộ lọc (**{filter_summary}**)..."
-            
-        with st.spinner(spinner_msg):
-            results = search_food_with_ai(user_query, selected_district, selected_category, selected_vibe, selected_budget, api_key, default_model)
-            if results:
-                st.session_state.search_results = results
-
-# --- HIỂN THỊ KẾT QUẢ TÌM KIẾM ---
-if st.session_state.search_results:
-    st.markdown("---")
-    st.subheader(f"✨ Gợi ý {len(st.session_state.search_results)} quán ăn phù hợp nhất:")
-    
-    for idx, item in enumerate(st.session_state.search_results):
-        with st.container(border=True):
-            col_info, col_action = st.columns([4, 1.2])
-            
-            with col_info:
-                st.markdown(f"### {idx+1}. {item.get('name', 'Quán ăn')} `⭐ {item.get('score', '4.5/5.0')}`")
-                st.markdown(f"📍 **Địa chỉ:** {item.get('address', 'Đang cập nhật')} *(Quận {item.get('district', '')})*")
-                st.markdown(f"💰 **Khoảng giá:** `{item.get('price_range', 'Đang cập nhật')}`")
-                st.markdown(f"🍽️ **Món nên gọi:** `{item.get('signature_dishes', '')}`")
-                st.markdown(f"💬 **Review tổng hợp:** {item.get('review_summary', '')}")
+            filter_summary = f"Quận: {selected_district} | Bữa: {selected_meal} | Thể loại: {selected_category} | Giá: {selected_budget}"
+            spinner_msg = f"🤖 AI đang tìm kiếm quán ăn phù hợp ({filter_summary})..."
                 
-                col_p, col_c = st.columns(2)
-                with col_p:
-                    st.success(f"👍 **Điểm cộng:** {item.get('pros', 'Đồ ăn tươi ngon')}")
-                with col_c:
-                    st.warning(f"⚠️ **Lưu ý:** {item.get('cons', 'Không có')}")
+            with st.spinner(spinner_msg):
+                results = search_ai_recommendations("food", user_query, selected_district, selected_category, selected_meal, selected_vibe, selected_budget, api_key, default_model)
+                if results:
+                    st.session_state.food_results = results
 
-            with col_action:
-                maps_url = f"https://www.google.com/maps/search/?api=1&query={item.get('name', '')}+{item.get('address', '')}".replace(" ", "+")
-                st.link_button("🗺️ Mở Google Maps", maps_url, use_container_width=True)
+    if st.session_state.food_results:
+        st.markdown("---")
+        st.subheader(f"✨ Gợi ý {len(st.session_state.food_results)} quán ăn phù hợp nhất:")
+        
+        for idx, item in enumerate(st.session_state.food_results):
+            with st.container(border=True):
+                col_info, col_action = st.columns([4, 1.2])
                 
-                is_saved = any(f.get('name') == item.get('name') for f in st.session_state.favorites)
-                if not is_saved:
-                    if st.button("⭐ Lưu quán", key=f"save_{idx}", use_container_width=True):
-                        st.session_state.favorites.append(item)
-                        st.rerun()
-                else:
-                    st.caption("✅ Đã lưu vào danh sách")
+                with col_info:
+                    st.markdown(f"### {idx+1}. {item.get('name', 'Quán ăn')} `⭐ {item.get('score', '4.5/5.0')}`")
+                    st.markdown(f"📍 **Địa chỉ:** {item.get('address', 'Đang cập nhật')} *(Quận {item.get('district', '')})*")
+                    st.markdown(f"💰 **Khoảng giá:** `{item.get('price_range', 'Đang cập nhật')}`")
+                    st.markdown(f"🍽️ **Món nên gọi:** `{item.get('signature_dishes', '')}`")
+                    st.markdown(f"💬 **Review tổng hợp:** {item.get('review_summary', '')}")
+                    
+                    col_p, col_c = st.columns(2)
+                    with col_p:
+                        st.success(f"👍 **Điểm cộng:** {item.get('pros', 'Đồ ăn tươi ngon')}")
+                    with col_c:
+                        st.warning(f"⚠️ **Lưu ý:** {item.get('cons', 'Không có')}")
+
+                with col_action:
+                    maps_url = f"https://www.google.com/maps/search/?api=1&query={item.get('name', '')}+{item.get('address', '')}".replace(" ", "+")
+                    st.link_button("🗺️ Mở Google Maps", maps_url, use_container_width=True)
+                    
+                    is_saved = any(f.get('name') == item.get('name') for f in st.session_state.favorites)
+                    if not is_saved:
+                        if st.button("⭐ Lưu quán", key=f"save_food_{idx}", use_container_width=True):
+                            st.session_state.favorites.append(item)
+                            st.rerun()
+                    else:
+                        st.caption("✅ Đã lưu vào danh sách")
+
+else: # MENU: 🎡 Địa Điểm Đi Chơi & Giải Trí
+    st.markdown('<div class="sub-title">Khám phá địa điểm đi chơi, cafe view đẹp, khu giải trí & check-in hot nhất Hà Nội</div>', unsafe_allow_html=True)
+
+    user_query = st.text_input(
+        "Nhập địa điểm hoặc từ khóa trải nghiệm muốn tìm (Tùy chọn):",
+        placeholder="Ví dụ: cafe chill Hồ Tây, bảo tàng nghệ thuật check-in, phố đi bộ đêm...",
+        label_visibility="collapsed"
+    )
+
+    st.caption("💡 **Gợi ý điểm đến hot (Bấm để xem ngay):**")
+    tag_cols = st.columns(5)
+    quick_travel_tags = [
+        "☕ Cafe chill ngắm Hồ Tây",
+        "🏛️ Bốt Hàng Đậu & Phố Cổ",
+        "🚲 Đạp xe Hồ Tây hoàng hôn",
+        "🎨 Bảo tàng Mỹ thuật check-in",
+        "🌌 Phố đi bộ Hồ Gươm đêm"
+    ]
+    selected_tag = None
+    for i, tag in enumerate(quick_travel_tags):
+        with tag_cols[i]:
+            if st.button(tag, key=f"travel_tag_{i}", use_container_width=True):
+                selected_tag = tag.split(" ", 1)[1]
+
+    col_btn1, col_btn2 = st.columns([3, 1])
+    with col_btn1:
+        btn_search = st.button("🔍 Khám Phá Địa Điểm", use_container_width=True, type="primary")
+    with col_btn2:
+        btn_random = st.button("🎲 Gợi Ý Bất Kỳ", use_container_width=True)
+
+    if btn_random:
+        random_travel_prompts = [
+            "Quán cafe rooftop view ngắm trọn Hồ Tây hoàng hôn",
+            "Bảo tàng Mỹ thuật Việt Nam kiến trúc Pháp cổ check-in đẹp",
+            "Cung thiếu nhi Hà Nội mới phong cách hiện đại độc lạ",
+            "Tổ hợp giải trí Complex 01 Tây Sơn không gian nghệ thuật",
+            "Phố sách Hà Nội yên tĩnh đọc sách và chụp ảnh"
+        ]
+        user_query = random.choice(random_travel_prompts)
+        st.info(f"💡 AI đang gợi ý điểm đến: **{user_query}**")
+        btn_search = True
+
+    if selected_tag:
+        user_query = selected_tag
+        st.info(f"💡 Bạn đã chọn: **{user_query}**")
+        btn_search = True
+
+    should_search = btn_search or btn_filter_search
+
+    if should_search:
+        if not api_key:
+            st.error("⚠️ Hệ thống đang bảo trì kết nối AI. Vui lòng thử lại sau!")
+        else:
+            filter_summary = f"Quận: {selected_district} | Loại hình: {selected_activity_type} | Chi phí: {selected_cost}"
+            spinner_msg = f"🤖 AI đang tìm kiếm địa điểm đi chơi phù hợp ({filter_summary})..."
+                
+            with st.spinner(spinner_msg):
+                results = search_ai_recommendations("travel", user_query, selected_district, selected_activity_type, selected_companion, None, selected_cost, api_key, default_model)
+                if results:
+                    st.session_state.travel_results = results
+
+    if st.session_state.travel_results:
+        st.markdown("---")
+        st.subheader(f"✨ Gợi ý {len(st.session_state.travel_results)} địa điểm đi chơi phù hợp nhất:")
+        
+        for idx, item in enumerate(st.session_state.travel_results):
+            with st.container(border=True):
+                col_info, col_action = st.columns([4, 1.2])
+                
+                with col_info:
+                    st.markdown(f"### {idx+1}. {item.get('name', 'Địa điểm')} `⭐ {item.get('score', '4.7/5.0')}`")
+                    st.markdown(f"📍 **Địa chỉ:** {item.get('address', 'Đang cập nhật')} *(Quận {item.get('district', '')})*")
+                    st.markdown(f"🎟️ **Vé / Chi phí:** `{item.get('price_range', 'Đang cập nhật')}`")
+                    st.markdown(f"🎯 **Trải nghiệm nên thử:** `{item.get('signature_activities', '')}`")
+                    st.markdown(f"💬 **Review không gian:** {item.get('review_summary', '')}")
+                    
+                    col_p, col_c = st.columns(2)
+                    with col_p:
+                        st.success(f"👍 **Điểm cộng:** {item.get('pros', 'Không gian thoáng mát')}")
+                    with col_c:
+                        st.warning(f"⚠️ **Lưu ý:** {item.get('cons', 'Không có')}")
+
+                with col_action:
+                    maps_url = f"https://www.google.com/maps/search/?api=1&query={item.get('name', '')}+{item.get('address', '')}".replace(" ", "+")
+                    st.link_button("🗺️ Mở Google Maps", maps_url, use_container_width=True)
+                    
+                    is_saved = any(f.get('name') == item.get('name') for f in st.session_state.favorites)
+                    if not is_saved:
+                        if st.button("⭐ Lưu địa điểm", key=f"save_travel_{idx}", use_container_width=True):
+                            st.session_state.favorites.append(item)
+                            st.rerun()
+                    else:
+                        st.caption("✅ Đã lưu vào danh sách")
