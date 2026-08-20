@@ -109,7 +109,7 @@ with st.sidebar:
 # --- HÀM GỌI AI PHÂN TÍCH (XỬ LÝ ẨN TRONG BACKGROUND) ---
 def search_food_with_ai(query_text, district, vibe, budget, api_key_val, model_name="gemini-3.6-flash"):
     models_to_try = [model_name]
-    fallback_candidates = ["gemini-3.6-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"]
+    fallback_candidates = ["gemini-3.6-flash", "gemini-2.5-flash"]
     for m in fallback_candidates:
         if m not in models_to_try:
             models_to_try.append(m)
@@ -179,7 +179,13 @@ def search_food_with_ai(query_text, district, vibe, budget, api_key_val, model_n
 
     # Thông báo lỗi và hiển thị Chi tiết nhật ký lỗi
     if has_quota_error:
-        st.error("⏳ **Hệ thống AI đang quá tải lượt tìm kiếm (Quota / Rate Limit 429).** Vui lòng thử lại sau 1-2 phút!")
+        st.error(f"⏳ **API Key hiện tại (`{masked_key}`) đã hết lượt gọi miễn phí (Quota 429 RESOURCE_EXHAUSTED)!**")
+        st.warning("""
+        💡 **Cách khắc phục nhanh:**
+        1. Mở mục **⚙️ Cấu hình API Key** ở menu bên trái (Sidebar).
+        2. Tạo một **API Key mới miễn phí** tại [Google AI Studio](https://aistudio.google.com/) rồi dán vào đè lên Key cũ.
+        3. Hoặc chờ vài phút để Google reset lại hạn mức lượt gọi theo phút (RPM).
+        """)
     else:
         st.error("⚠️ **Không thể kết nối dịch vụ AI vào lúc này.**")
 
