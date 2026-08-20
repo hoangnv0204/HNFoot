@@ -113,6 +113,99 @@ with st.sidebar:
         st.caption("Chưa có quán nào trong danh sách yêu thích.")
 
 
+# --- HÀM GỌI AI PHÂN TÍCH (XỬ LÝ ẨN TRONG BACKGROUND) ---
+def search_food_with_ai(query_text, district, category, vibe, budget, api_key_val, model_name="gemini-3.6-flash"):
+    import time
+
+    models_to_try = [model_name]
+    fallback_candidates = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    for m in fallback_candidates:
+        if m not in models_to_try:
+            models_to_try.append(m)
+
+    debug_logs = []
+    masked_key = api_key_val[:6] + "..." + api_key_val[-4:] if len(api_key_val) > 10 else "Chưa có / Rỗng"
+    debug_logs.append(f"🔑 **API Key đang dùng:** `{masked_key}`")
+
+    # Chiến lược 2 chế độ: 1. Có Google Search Grounding -> 2. Cơ sở tri thức AI (khi bị Quota 429)
+    configs_to_try = [
+        ("Chế độ 1: Tìm kiếm mạng thời gian thực (Google Search Grounding)", [{"google_search": {}}]),
+        ("Chế độ 2: Tri thức AI bản địa tích hợp (No Search Tool)", None)
+    ]
+
+    client = genai.Client(api_key=api_key_val)
+
+    prompt = f"""
+    Bạn là một chuyên gia ẩm thực bản địa sành sỏi tại Hà Nội.
+    Nhiệm vụ của bạn: Tìm kiếm và tổng hợp các quán ăn ngon, chuẩn vị, nổi tiếng tại Hà Nội theo các bộ lọc tiêu chí sau:
+    
+    - Từ khóa / Món yêu cầu: "{query_text if query_text.strip() else 'Các quán ăn nổi tiếng chuẩn vị'}"
+    - Khu vực ưu tiên: {district}
+    - Thể loại món ăn: {category}
+    - Dịp / Không khí: {vibe}
+    - Ngân sách dự kiến: {budget}
+
+    Yêu cầu quan trọng:
+    1. Tìm từ 3 đến 6 quán ăn ngon, chuẩn vị, chất lượng thật sự được người bản địa (local) và review đánh giá cao phù hợp với các bộ lọc trên.
+    2. Tóm tắt trung thực cả điểm khen và điểm lưu ý/hạn chế (nếu có: đông phải xếp hàng, chỗ để xe hẹp,...).
+    3. Xuất kết quả bắt buộc ở định dạng JSON thuần túy (không markdown bọc ngoài, không text thừa) là một danh sách các Object theo mẫu:
+    [
+      {{
+        "name": "Tên quán ăn",
+        "district": "Quận (ví dụ: Hoàn Kiếm)",
+        "address": "Địa chỉ cụ thể kèm ngõ/phố",
+        "price_range": "Khoảng giá (VNĐ)",
+        "signature_dishes": "Các món nổi bật nhất định phải thử",
+        "review_summary": "Tóm tắt review từ TikTok/FB/Google (vị nước dùng, độ tươi, phục vụ...)",
+        "pros": "Điểm cộng lớn nhất",
+        "cons": "Điểm trừ hoặc lưu ý khi đến quán (chờ lâu, gửi xe...)",
+        "score": "Điểm đánh giá trung bình (ví dụ: 4.6/5.0)"
+      }}
+    ]
+    """
+
+    for current_model in models_to_try:
+        for mode_title, tools_config in configs_to_try:
+            # Thử tối đa 2 lần đối với lỗi quá tải tạm thời (503 UNAVAILABLE)
+            for attempt in range(2):
+                try:
+                    config_kwargs = {"temperature": 0.3}
+                    if tools_config:
+                        config_kwargs["tools"] = tools_config
+
+                    chat = client.chats.create(
+                        model=current_model,
+                        config=types.GenerateContentConfig(**config_kwargs)
+                    )
+                    response = chat.send_message(prompt)
+                    
+                    raw_text = response.text.strip()
+                    cleaned_json = re.sub(r"^```json\s*", "", raw_text)
+                    cleaned_json = re.sub(r"^```\s*", "", cleaned_json)
+                    cleaned_json = re.sub(r"\s*```$", "", cleaned_json).strip()
+                    
+                    return json.loads(cleaned_json)
+                except Exception as e:
+                    err_str = str(e)
+                    debug_logs.append(f"❌ Mô hình `{current_model}` ({mode_title} - Thử {attempt+1}) thất bại: `{err_str}`")
+                    print(f"[DEBUG_LOG] {current_model} ({mode_title}) attempt {attempt+1} failed: {err_str}")
+                    
+                    # Nếu gặp lỗi 503 (Server quá tải tạm thời), đợi 1 giây rồi thử lại
+                    if "503" in err_str or "UNAVAILABLE" in err_str:
+                        time.sleep(1)
+                        continue
+                    else:
+                        # Với lỗi 429 Quota hoặc 404, chuyển sang chế độ/mô hình tiếp theo ngay
+                        break
+
+    st.error("⚠️ **Hệ thống AI đang quá tải lượt gọi tạm thời từ Google. Vui lòng bấm thử lại sau vài giây!**")
+
+    with st.expander("🛠️ Chi tiết nhật ký lỗi (Debug Logs)", expanded=True):
+        for log in debug_logs:
+            st.markdown(f"- {log}")
+    return None
+
+
 # --- GIAO DIỆN CHÍNH ---
 st.markdown('<div class="main-title">🍲 Hà Nội Food AI</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">Chọn bộ lọc bên trái hoặc nhập từ khóa ➔ Bấm nút để khám phá các quán ăn ngon nhất</div>', unsafe_allow_html=True)
