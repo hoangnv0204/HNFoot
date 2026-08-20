@@ -27,6 +27,10 @@ st.markdown("""
 <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="stHeader"] {display: none;}
+    [data-testid="stToolbar"] {display: none;}
+    .stAppToolbar {display: none;}
     
     .main-title {
         font-size: 2.2rem;
