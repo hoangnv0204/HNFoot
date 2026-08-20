@@ -109,85 +109,77 @@ with st.sidebar:
 # --- HÀM GỌI AI PHÂN TÍCH (XỬ LÝ ẨN TRONG BACKGROUND) ---
 def search_food_with_ai(query_text, district, vibe, budget, api_key_val, model_name="gemini-3.6-flash"):
     models_to_try = [model_name]
-    fallback_candidates = ["gemini-3.6-flash", "gemini-2.5-flash"]
+    fallback_candidates = ["gemini-3.6-flash"]
     for m in fallback_candidates:
         if m not in models_to_try:
             models_to_try.append(m)
 
-    last_error = None
-    has_quota_error = False
     debug_logs = []
-
     masked_key = api_key_val[:6] + "..." + api_key_val[-4:] if len(api_key_val) > 10 else "Chưa có / Rỗng"
     debug_logs.append(f"🔑 **API Key đang dùng:** `{masked_key}`")
 
+    # Chiến lược 2 chế độ: 1. Có Google Search Grounding -> 2. Cơ sở tri thức AI (khi bị Quota 429)
+    configs_to_try = [
+        ("Chế độ 1: Tìm kiếm mạng thời gian thực (Google Search Grounding)", [{"google_search": {}}]),
+        ("Chế độ 2: Tri thức AI bản địa tích hợp (No Search Tool)", None)
+    ]
+
+    client = genai.Client(api_key=api_key_val)
+
+    prompt = f"""
+    Bạn là một chuyên gia ẩm thực bản địa sành sỏi tại Hà Nội.
+    Nhiệm vụ của bạn: Tìm kiếm và tổng hợp các quán ăn ngon, chuẩn vị, nổi tiếng tại Hà Nội theo yêu cầu sau:
+    
+    - Món ăn / Yêu cầu tìm kiếm: "{query_text}"
+    - Khu vực ưu tiên: {district}
+    - Dịp / Không khí: {vibe}
+    - Ngân sách dự kiến: {budget}
+
+    Yêu cầu quan trọng:
+    1. Tìm từ 3 đến 6 quán ăn ngon, chuẩn vị, chất lượng thật sự được người bản địa (local) và review đánh giá cao.
+    2. Tóm tắt trung thực cả điểm khen và điểm lưu ý/hạn chế (nếu có: đông phải xếp hàng, chỗ để xe hẹp,...).
+    3. Xuất kết quả bắt buộc ở định dạng JSON thuần túy (không markdown bọc ngoài, không text thừa) là một danh sách các Object theo mẫu:
+    [
+      {{
+        "name": "Tên quán ăn",
+        "district": "Quận (ví dụ: Hoàn Kiếm)",
+        "address": "Địa chỉ cụ thể kèm ngõ/phố",
+        "price_range": "Khoảng giá (VNĐ)",
+        "signature_dishes": "Các món nổi bật nhất định phải thử",
+        "review_summary": "Tóm tắt review từ TikTok/FB/Google (vị nước dùng, độ tươi, phục vụ...)",
+        "pros": "Điểm cộng lớn nhất",
+        "cons": "Điểm trừ hoặc lưu ý khi đến quán (chờ lâu, gửi xe...)",
+        "score": "Điểm đánh giá trung bình (ví dụ: 4.6/5.0)"
+      }}
+    ]
+    """
+
     for current_model in models_to_try:
-        try:
-            client = genai.Client(api_key=api_key_val)
-            
-            prompt = f"""
-            Bạn là một chuyên gia ẩm thực bản địa sành sỏi tại Hà Nội.
-            Nhiệm vụ của bạn: Tìm kiếm và tổng hợp các review thực tế mới nhất trên Google Maps, TikTok, Food Reviewer Facebook, Threads về món ăn/yêu cầu sau:
-            
-            - Món ăn / Yêu cầu tìm kiếm: "{query_text}"
-            - Khu vực ưu tiên: {district}
-            - Dịp / Không khí: {vibe}
-            - Ngân sách dự kiến: {budget}
+        for mode_title, tools_config in configs_to_try:
+            try:
+                config_kwargs = {"temperature": 0.3}
+                if tools_config:
+                    config_kwargs["tools"] = tools_config
 
-            Yêu cầu quan trọng:
-            1. Tìm từ 3 đến 6 quán ăn ngon, chuẩn vị, chất lượng thật sự được người bản địa (local) và review mạng đánh giá cao.
-            2. Tóm tắt trung thực cả điểm khen và điểm lưu ý/hạn chế (nếu có: đông phải xếp hàng, chỗ để xe hẹp,...).
-            3. Xuất kết quả bắt buộc ở định dạng JSON thuần túy (không markdown bọc ngoài, không text thừa) là một danh sách các Object theo mẫu:
-            [
-              {{
-                "name": "Tên quán ăn",
-                "district": "Quận (ví dụ: Hoàn Kiếm)",
-                "address": "Địa chỉ cụ thể kèm ngõ/phố",
-                "price_range": "Khoảng giá (VNĐ)",
-                "signature_dishes": "Các món nổi bật nhất định phải thử",
-                "review_summary": "Tóm tắt review từ TikTok/FB/Google (vị nước dùng, độ tươi, phục vụ...)",
-                "pros": "Điểm cộng lớn nhất",
-                "cons": "Điểm trừ hoặc lưu ý khi đến quán (chờ lâu, gửi xe...)",
-                "score": "Điểm đánh giá trung bình (ví dụ: 4.6/5.0)"
-              }}
-            ]
-            """
-            
-            chat = client.chats.create(
-                model=current_model,
-                config=types.GenerateContentConfig(
-                    temperature=0.3,
-                    tools=[{"google_search": {}}]
+                chat = client.chats.create(
+                    model=current_model,
+                    config=types.GenerateContentConfig(**config_kwargs)
                 )
-            )
-            response = chat.send_message(prompt)
-            
-            raw_text = response.text.strip()
-            cleaned_json = re.sub(r"^```json\s*", "", raw_text)
-            cleaned_json = re.sub(r"^```\s*", "", cleaned_json)
-            cleaned_json = re.sub(r"\s*```$", "", cleaned_json).strip()
-            
-            return json.loads(cleaned_json)
-        except Exception as e:
-            err_str = str(e)
-            debug_logs.append(f"❌ Mô hình `{current_model}` thất bại: `{err_str}`")
-            print(f"[DEBUG_LOG] Model {current_model} failed: {err_str}")
-            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                has_quota_error = True
-            last_error = e
-            continue
+                response = chat.send_message(prompt)
+                
+                raw_text = response.text.strip()
+                cleaned_json = re.sub(r"^```json\s*", "", raw_text)
+                cleaned_json = re.sub(r"^```\s*", "", cleaned_json)
+                cleaned_json = re.sub(r"\s*```$", "", cleaned_json).strip()
+                
+                return json.loads(cleaned_json)
+            except Exception as e:
+                err_str = str(e)
+                debug_logs.append(f"❌ Mô hình `{current_model}` ({mode_title}) thất bại: `{err_str}`")
+                print(f"[DEBUG_LOG] {current_model} ({mode_title}) failed: {err_str}")
+                continue
 
-    # Thông báo lỗi và hiển thị Chi tiết nhật ký lỗi
-    if has_quota_error:
-        st.error(f"⏳ **API Key hiện tại (`{masked_key}`) đã hết lượt gọi miễn phí (Quota 429 RESOURCE_EXHAUSTED)!**")
-        st.warning("""
-        💡 **Cách khắc phục nhanh:**
-        1. Mở mục **⚙️ Cấu hình API Key** ở menu bên trái (Sidebar).
-        2. Tạo một **API Key mới miễn phí** tại [Google AI Studio](https://aistudio.google.com/) rồi dán vào đè lên Key cũ.
-        3. Hoặc chờ vài phút để Google reset lại hạn mức lượt gọi theo phút (RPM).
-        """)
-    else:
-        st.error("⚠️ **Không thể kết nối dịch vụ AI vào lúc này.**")
+    st.error("⚠️ **Không thể kết nối dịch vụ AI vào lúc này.** Tất cả chế độ gọi đều thất bại.")
 
     with st.expander("🛠️ Chi tiết nhật ký lỗi (Debug Logs)", expanded=True):
         for log in debug_logs:
