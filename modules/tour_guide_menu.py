@@ -12,8 +12,16 @@ def render_tour_guide_sidebar():
         ["3 ngày 2 đêm", "2 ngày 1 đêm", "1 ngày (Đi trong ngày)", "4 ngày 3 đêm", "5 ngày 4 đêm"]
     )
     selected_time_guide = st.selectbox(
-        "📅 Thời điểm đi:",
+        "📅 Thời điểm đi (Mùa):",
         ["Tự động (Theo tháng 8 hiện tại)", "Tháng này (Thời tiết thật)", "Mùa Xuân", "Mùa Hè", "Mùa Thu", "Mùa Đông"]
+    )
+    selected_departure_time = st.selectbox(
+        "🌅 Khung giờ xuất phát:",
+        ["Tự động (Giờ tối ưu)", "Buổi Sáng (5h - 9h)", "Buổi Chiều (12h - 15h)", "Buổi Tối / Đêm (18h - 22h)"]
+    )
+    selected_preferred_vehicle = st.selectbox(
+        "🚗 Phương tiện mong muốn:",
+        ["Tự động gợi ý tốt nhất", "Xe khách Limousine / Giường nằm", "Tàu hỏa hỏa tốc", "Máy bay", "Xe máy phượt", "Ô tô cá nhân / Tự lái"]
     )
     selected_companion_guide = st.selectbox(
         "👥 Bạn đồng hành:",
@@ -24,10 +32,19 @@ def render_tour_guide_sidebar():
         options=["Tiết kiệm", "Phổ thông / Tiêu chuẩn", "Sang chảnh / Resort"]
     )
     btn_filter_search = st.button("🧳 Lên Cẩm Nang Du Lịch", use_container_width=True, type="primary")
-    return selected_origin, selected_duration_guide, selected_time_guide, selected_companion_guide, selected_budget_guide, btn_filter_search
+    return (
+        selected_origin,
+        selected_duration_guide,
+        selected_time_guide,
+        selected_departure_time,
+        selected_preferred_vehicle,
+        selected_companion_guide,
+        selected_budget_guide,
+        btn_filter_search
+    )
 
 
-def render_tour_guide_main(selected_origin, selected_duration_guide, selected_time_guide, selected_companion_guide, selected_budget_guide, btn_filter_search, api_key, default_model):
+def render_tour_guide_main(selected_origin, selected_duration_guide, selected_time_guide, selected_departure_time, selected_preferred_vehicle, selected_companion_guide, selected_budget_guide, btn_filter_search, api_key, default_model):
     st.markdown('<div class="sub-title">Cẩm nang du lịch trọn gói: Gợi ý Đặt xe, Top Homestay ok nhất, Outfit & Lịch trình chi tiết tiện đường</div>', unsafe_allow_html=True)
 
     col_loc1, col_loc2 = st.columns(2)
@@ -95,7 +112,7 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
                     origin_input,
                     dest_input,
                     selected_duration_guide,
-                    selected_time_guide,
+                    f"Mùa: {selected_time_guide} | Xuất phát: {selected_departure_time} | Phương tiện mong muốn: {selected_preferred_vehicle}",
                     f"{selected_companion_guide} - Ngân sách: {selected_budget_guide}",
                     api_key,
                     default_model

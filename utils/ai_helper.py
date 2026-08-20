@@ -129,7 +129,7 @@ def search_ai_recommendations(mode, query_text, district, cat_or_type, extra1, e
         origin_loc = district
         dest_loc = cat_or_type
         duration_val = extra1
-        time_val = get_current_hanoi_season() if "Tự động" in extra2 else extra2
+        time_details = extra2
         
         prompt = f"""
         Bạn là một chuyên gia du lịch hàng đầu và stylist tư vấn trang phục du lịch chuyên nghiệp.
@@ -139,14 +139,14 @@ def search_ai_recommendations(mode, query_text, district, cat_or_type, extra1, e
         - Điểm khởi hành (Nơi đi): {origin_loc}
         - Điểm du lịch đến (Nơi đến): {dest_loc}
         - Thời gian chuyến đi: {duration_val}
-        - Thời điểm / Mùa đi: {time_val}
+        - Mùa đi, Giờ xuất phát & Phương tiện yêu cầu: {time_details}
         - Ngân sách & Bạn đồng hành: {budget_or_cost}
         - Yêu cầu thêm: "{query_text if query_text.strip() else 'Gợi ý du lịch tối ưu nhất'}"
 
         Yêu cầu quan trọng:
-        1. Gợi ý cụ thể HÃNG XE / ĐƠN VỊ ĐẶT XE UY TÍN (kèm kinh nghiệm đặt vé và kênh đặt xe tốt nhất như Vexere, Hotline, Klook...).
+        1. Đề xuất HÃNG XE / ĐƠN VỊ ĐẶT XE UY TÍN bám sát phương tiện yêu cầu và khung giờ xuất phát mong muốn (Sáng/Chiều/Tối) kèm kênh đặt vé tiện lợi (Vexere, Hotline, Klook...).
         2. Gợi ý TOP 3 HOMESTAY / KHÁCH SẠN OK NHẤT tại điểm đến (Decor xinh, view ngắm cảnh đẹp, sát trung tâm, giá phòng hợp lý).
-        3. LỊCH TRÌNH CHI TIẾT TỪNG NGÀY NỐI TIẾP TIỆN ĐƯỜNG DI CHUYỂN NHẤT (Sắp xếp theo thứ tự địa lý gần nhau từ điểm A ➔ điểm B ➔ điểm C để không bị ngược đường).
+        3. LỊCH TRÌNH CHI TIẾT TỪNG NGÀY NỐI TIẾP TIỆN ĐƯỜNG DI CHUYỂN NHẤT (Sắp xếp thứ tự địa lý gần nhau từ A ➔ B ➔ C và bắt đầu chặng Ngày 1 phù hợp với đúng khung giờ xuất phát Sáng/Chiều/Tối).
         4. Gợi ý Outfit phối màu cực ăn ảnh theo thời tiết thực tế.
         5. Gợi ý danh sách Quán ăn đặc sản nhất định phải thử kèm địa chỉ cụ thể.
 
@@ -155,8 +155,8 @@ def search_ai_recommendations(mode, query_text, district, cat_or_type, extra1, e
           "trip_title": "Cẩm Nang Du Lịch (Tên Nơi Đến) Trọn Gói Từ (Tên Nơi Đi)",
           "weather_vibe": "Tóm tắt thời tiết, nhiệt độ thực tế tại nơi đến và lời khuyên chuẩn bị chung",
           "transportation": {{
-            "vehicle_type": "Phương tiện di chuyển phù hợp nhất (Xe khách giường nằm Limousine / Máy bay / Tàu hỏa / Xe máy...)",
-            "recommended_bus_lines": "Tên các Hãng xe / Hãng vận tải uy tín nổi tiếng (Ví dụ: Nhà xe Sao Việt, G8 Open Tour, Hà Sơn Hải Vân...)",
+            "vehicle_type": "Phương tiện di chuyển (Xe khách giường nằm Limousine / Máy bay / Tàu hỏa / Xe máy...)",
+            "recommended_bus_lines": "Tên các Hãng xe / Hãng vận tải uy tín nổi tiếng (Ví dụ: Nhà xe Sao Việt, G8 Open Tour, Hải Vân...)",
             "travel_time": "Thời gian di chuyển ước tính (Ví dụ: Khoảng 5 - 6 tiếng)",
             "ticket_price": "Mức giá vé / chi phí xe dự kiến (VNĐ)",
             "booking_tips": "Kinh nghiệm chọn hãng xe/chuyến xe, kênh đặt vé tiện lợi (Vexere, Klook, Hotline...) & giờ xuất phát tối ưu"
