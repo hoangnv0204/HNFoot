@@ -125,8 +125,10 @@ st.session_state.prev_filter_state = current_filter_state
 
 # --- HÀM GỌI AI PHÂN TÍCH (XỬ LÝ ẨN TRONG BACKGROUND) ---
 def search_food_with_ai(query_text, district, category, vibe, budget, api_key_val, model_name="gemini-3.6-flash"):
+    import time
+
     models_to_try = [model_name]
-    fallback_candidates = ["gemini-3.6-flash"]
+    fallback_candidates = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
     for m in fallback_candidates:
         if m not in models_to_try:
             models_to_try.append(m)
@@ -174,30 +176,39 @@ def search_food_with_ai(query_text, district, category, vibe, budget, api_key_va
 
     for current_model in models_to_try:
         for mode_title, tools_config in configs_to_try:
-            try:
-                config_kwargs = {"temperature": 0.3}
-                if tools_config:
-                    config_kwargs["tools"] = tools_config
+            # Thử tối đa 2 lần đối với lỗi quá tải tạm thời (503 UNAVAILABLE)
+            for attempt in range(2):
+                try:
+                    config_kwargs = {"temperature": 0.3}
+                    if tools_config:
+                        config_kwargs["tools"] = tools_config
 
-                chat = client.chats.create(
-                    model=current_model,
-                    config=types.GenerateContentConfig(**config_kwargs)
-                )
-                response = chat.send_message(prompt)
-                
-                raw_text = response.text.strip()
-                cleaned_json = re.sub(r"^```json\s*", "", raw_text)
-                cleaned_json = re.sub(r"^```\s*", "", cleaned_json)
-                cleaned_json = re.sub(r"\s*```$", "", cleaned_json).strip()
-                
-                return json.loads(cleaned_json)
-            except Exception as e:
-                err_str = str(e)
-                debug_logs.append(f"❌ Mô hình `{current_model}` ({mode_title}) thất bại: `{err_str}`")
-                print(f"[DEBUG_LOG] {current_model} ({mode_title}) failed: {err_str}")
-                continue
+                    chat = client.chats.create(
+                        model=current_model,
+                        config=types.GenerateContentConfig(**config_kwargs)
+                    )
+                    response = chat.send_message(prompt)
+                    
+                    raw_text = response.text.strip()
+                    cleaned_json = re.sub(r"^```json\s*", "", raw_text)
+                    cleaned_json = re.sub(r"^```\s*", "", cleaned_json)
+                    cleaned_json = re.sub(r"\s*```$", "", cleaned_json).strip()
+                    
+                    return json.loads(cleaned_json)
+                except Exception as e:
+                    err_str = str(e)
+                    debug_logs.append(f"❌ Mô hình `{current_model}` ({mode_title} - Thử {attempt+1}) thất bại: `{err_str}`")
+                    print(f"[DEBUG_LOG] {current_model} ({mode_title}) attempt {attempt+1} failed: {err_str}")
+                    
+                    # Nếu gặp lỗi 503 (Server quá tải tạm thời), đợi 1 giây rồi thử lại
+                    if "503" in err_str or "UNAVAILABLE" in err_str:
+                        time.sleep(1)
+                        continue
+                    else:
+                        # Với lỗi 429 Quota hoặc 404, chuyển sang chế độ/mô hình tiếp theo ngay
+                        break
 
-    st.error("⚠️ **Không thể kết nối dịch vụ AI vào lúc này.** Tất cả chế độ gọi đều thất bại.")
+    st.error("⚠️ **Hệ thống AI đang quá tải lượt gọi tạm thời từ Google. Vui lòng bấm thử lại sau vài giây!**")
 
     with st.expander("🛠️ Chi tiết nhật ký lỗi (Debug Logs)", expanded=True):
         for log in debug_logs:
