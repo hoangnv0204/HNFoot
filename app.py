@@ -8,7 +8,7 @@ from google.genai import types
 from dotenv import load_dotenv
 
 # Tải biến môi trường từ tệp .env (nếu có)
-load_dotenv()
+load_dotenv(override=True)
 
 # Cấu hình trang Streamlit
 st.set_page_config(
@@ -43,18 +43,31 @@ if "favorites" not in st.session_state:
 if "search_results" not in st.session_state:
     st.session_state.search_results = []
 
-# Đọc cấu hình ngầm từ môi trường (không hiển thị lên UI)
-api_key = os.getenv("GEMINI_API_KEY", "")
-if not api_key and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
+# Đọc cấu hình từ môi trường / Secrets
+env_api_key = os.getenv("GEMINI_API_KEY", "").strip()
+if not env_api_key and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+    env_api_key = st.secrets["GEMINI_API_KEY"].strip()
 
-default_model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+default_model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
 
 
 # --- SIDEBAR: BỘ LỌC TÌM KIẾM DÀNH CHO NGƯỜI DÙNG ---
 with st.sidebar:
     st.header("🎯 Bộ Lọc Tìm Kiếm")
     
+    # Mục cấu hình thu gọn (chỉ mở ra khi chưa có API Key)
+    with st.expander("⚙️ Cấu hình API Key", expanded=not bool(env_api_key)):
+        user_api_key = st.text_input(
+            "Gemini API Key:",
+            value=env_api_key,
+            type="password",
+            help="Nhập API Key cá nhân từ Google AI Studio nếu ứng dụng chưa tự nhận chìa khóa."
+        )
+        if env_api_key:
+            st.caption("✅ Đã sẵn sàng API Key từ Server / .env")
+
+    api_key = user_api_key if user_api_key else env_api_key
+
     selected_district = st.selectbox(
         "📍 Khu vực (Quận):",
         ["Tất cả Hà Nội", "Hoàn Kiếm", "Ba Đình", "Đống Đa", "Hai Bà Trưng", "Cầu Giấy", "Tây Hồ", "Thanh Xuân", "Nam Từ Liêm", "Bắc Từ Liêm", "Hoàng Mai", "Long Biên", "Hà Đông"]
@@ -217,7 +230,7 @@ if selected_tag:
 # Thực hiện tìm kiếm
 if btn_search:
     if not api_key:
-        st.error("⚠️ Hệ thống chưa được cấu hình API Key. Vui lòng thiết lập biến môi trường GEMINI_API_KEY trên Server.")
+        st.error("⚠️ Chưa nhận diện được API Key. Vui lòng mở mục **⚙️ Cấu hình API Key** ở menu bên trái để dán API Key hoặc tạo tệp `.env`.")
     elif not user_query.strip():
         st.warning("⚠️ Vui lòng nhập món ăn hoặc chọn gợi ý bạn muốn tìm!")
     else:
