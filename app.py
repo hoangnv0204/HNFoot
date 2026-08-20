@@ -349,16 +349,33 @@ def search_ai_recommendations(mode, query_text, district, cat_or_type, extra1, e
         - Ngân sách & Bạn đồng hành: {budget_or_cost}
         - Yêu cầu thêm: "{query_text if query_text.strip() else 'Gợi ý du lịch tối ưu nhất'}"
 
+        Yêu cầu quan trọng:
+        1. Gợi ý cụ thể HÃNG XE / ĐƠN VỊ ĐẶT XE UY TÍN (kèm kinh nghiệm đặt vé và kênh đặt xe tốt nhất như Vexere, Hotline, Klook...).
+        2. Gợi ý TOP 3 HOMESTAY / KHÁCH SẠN OK NHẤT tại điểm đến (Decor xinh, view ngắm cảnh đẹp, sát trung tâm, giá phòng hợp lý).
+        3. LỊCH TRÌNH CHI TIẾT TỪNG NGÀY NỐI TIẾP TIỆN ĐƯỜNG DI CHUYỂN NHẤT (Sắp xếp theo thứ tự địa lý gần nhau từ điểm A ➔ điểm B ➔ điểm C để không bị ngược đường).
+        4. Gợi ý Outfit phối màu cực ăn ảnh theo thời tiết thực tế.
+        5. Gợi ý danh sách Quán ăn đặc sản nhất định phải thử kèm địa chỉ cụ thể.
+
         Yêu cầu xuất duy nhất MỘT JSON Object thuần túy (không markdown bọc ngoài, không text thừa) có cấu trúc chính xác sau:
         {{
           "trip_title": "Cẩm Nang Du Lịch (Tên Nơi Đến) Trọn Gói Từ (Tên Nơi Đi)",
           "weather_vibe": "Tóm tắt thời tiết, nhiệt độ thực tế tại nơi đến và lời khuyên chuẩn bị chung",
           "transportation": {{
             "vehicle_type": "Phương tiện di chuyển phù hợp nhất (Xe khách giường nằm Limousine / Máy bay / Tàu hỏa / Xe máy...)",
+            "recommended_bus_lines": "Tên các Hãng xe / Hãng vận tải uy tín nổi tiếng (Ví dụ: Nhà xe Sao Việt, G8 Open Tour, Hà Sơn Hải Vân...)",
             "travel_time": "Thời gian di chuyển ước tính (Ví dụ: Khoảng 5 - 6 tiếng)",
             "ticket_price": "Mức giá vé / chi phí xe dự kiến (VNĐ)",
-            "booking_tips": "Kinh nghiệm chọn hãng xe/chuyến xe, giờ xuất phát tối ưu"
+            "booking_tips": "Kinh nghiệm chọn hãng xe/chuyến xe, kênh đặt vé tiện lợi (Vexere, Klook, Hotline...) & giờ xuất phát tối ưu"
           }},
+          "homestay_recommendations": [
+            {{
+              "name": "Tên Homestay / Khách sạn uy tín",
+              "address": "Địa chỉ cụ thể tại điểm đến",
+              "price_per_night": "Khoảng giá / đêm (VNĐ)",
+              "highlight": "Điểm đắt giá nhất (Ví dụ: View thung lũng săn mây / Bể bơi vô cực / Decor phong cách Boho vintage...)",
+              "review_summary": "Tóm tắt review thực tế từ khách đã ở"
+            }}
+          ],
           "outfit_guide": {{
             "style_name": "Phong cách ăn mặc phù hợp (Ví dụ: Boho / Vintage / Năng động check-in...)",
             "recommended_colors": ["Tên màu 1", "Tên màu 2", "Tên màu 3", "Tên màu 4"],
@@ -368,13 +385,14 @@ def search_ai_recommendations(mode, query_text, district, cat_or_type, extra1, e
           }},
           "day_by_day_itinerary": [
             {{
-              "day_title": "Ngày 1: Tên chặng hành trình",
+              "day_title": "Ngày 1: Tên chặng hành trình (Ví dụ: Khám phá Trung Tâm & Check-in Cafe tiện đường)",
               "activities": [
                 {{
                   "time": "08:00 - 11:30",
                   "title": "Tên hoạt động / Điểm đến",
-                  "location": "Địa chỉ / Địa danh cụ thể",
+                  "location": "Địa chỉ / Tên địa danh cụ thể",
                   "description": "Chi tiết trải nghiệm",
+                  "route_note": "Lưu ý di chuyển tiện đường (Ví dụ: Cách điểm ăn sáng 500m, trên cùng tuyến đường chính)",
                   "pro_tip": "Mẹo chụp ảnh / gửi xe / giờ tránh đông"
                 }}
               ]
@@ -680,7 +698,7 @@ elif app_mode == "🗓️ Lịch Trình Tự Động (Theo Mùa & Thời Gian Th
     if st.session_state.itinerary_result:
         itin = st.session_state.itinerary_result
         st.markdown("---")
-        st.subheader(f"🚩 {itin.get('itinerary_title', 'Lịch Trình Đi Chơi & Ăn UỐng Hà Nội')}")
+        st.subheader(f"🚩 {itin.get('itinerary_title', 'Lịch Trình Đi Chơi & Ăn Uống Hà Nội')}")
         
         col_m1, col_m2 = st.columns(2)
         with col_m1:
@@ -708,7 +726,7 @@ elif app_mode == "🗓️ Lịch Trình Tự Động (Theo Mùa & Thời Gian Th
                     st.link_button("🗺️ Mở vị trí Google Maps", maps_url)
 
 else: # MENU 4: 🧳 Cẩm Nang Du Lịch Full (Outfit + Phương Tiện + Lịch Trình)
-    st.markdown('<div class="sub-title">Cẩm nang du lịch trọn gói: Gợi ý Phương tiện di chuyển, Outfit trang phục phối màu & Lịch trình chi tiết</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-title">Cẩm nang du lịch trọn gói: Gợi ý Đặt xe, Top Homestay ok nhất, Outfit & Lịch trình chi tiết tiện đường</div>', unsafe_allow_html=True)
 
     col_loc1, col_loc2 = st.columns(2)
     with col_loc1:
@@ -766,7 +784,7 @@ else: # MENU 4: 🧳 Cẩm Nang Du Lịch Full (Outfit + Phương Tiện + Lịc
         if not api_key:
             st.error("⚠️ Hệ thống đang bảo trì kết nối AI. Vui lòng thử lại sau!")
         else:
-            spinner_msg = f"🤖 AI đang tổng hợp Cẩm Nang Du Lịch ({origin_input} ➔ {dest_input}), gợi ý Outfit & Phương tiện phù hợp..."
+            spinner_msg = f"🤖 AI đang tổng hợp Cẩm Nang Du Lịch ({origin_input} ➔ {dest_input}), gợi ý Đặt xe, Homestay & Lịch trình tiện đường..."
                 
             with st.spinner(spinner_msg):
                 results = search_ai_recommendations(
@@ -799,12 +817,13 @@ else: # MENU 4: 🧳 Cẩm Nang Du Lịch Full (Outfit + Phương Tiện + Lịc
         
         with col_trans:
             with st.container(border=True):
-                st.markdown("### 🛞 Phương Tiện Di Chuyển")
+                st.markdown("### 🛞 Phương Tiện Di Chuyển & Gợi Ý Đặt Xe")
                 trans = guide.get("transportation", {})
                 st.markdown(f"🚌 **Phương tiện khuyên dùng:** `{trans.get('vehicle_type', 'Xe giường nằm / Máy bay')}`")
+                st.markdown(f"🚍 **Hãng xe / Đơn vị uy tín:** `{trans.get('recommended_bus_lines', 'Các nhà xe chất lượng cao')}`")
                 st.markdown(f"⏱️ **Thời gian di chuyển:** `{trans.get('travel_time', 'Đang cập nhật')}`")
                 st.markdown(f"🎟️ **Giá vé ước tính:** `{trans.get('ticket_price', 'Đang cập nhật')}`")
-                st.info(f"💡 **Mẹo xe & xuất phát:** {trans.get('booking_tips', 'Nên đặt vé trước 3-5 ngày')}")
+                st.info(f"💡 **Mẹo đặt vé & xuất phát:** {trans.get('booking_tips', 'Nên đặt vé trước 3-5 ngày qua Vexere hoặc hotline nhà xe')}")
 
         with col_outfit:
             with st.container(border=True):
@@ -820,8 +839,24 @@ else: # MENU 4: 🧳 Cẩm Nang Du Lịch Full (Outfit + Phương Tiện + Lịc
                 st.markdown(f"🧢 **Phụ kiện cần mang:** `{outfit.get('accessories', '')}`")
                 st.success(f"📸 **Mẹo chụp ảnh đẹp:** {outfit.get('photo_tips', '')}")
 
-        # Lịch trình chi tiết từng ngày
-        st.markdown("### 🗓️ Lịch Trình Chi Tiết Từng Ngày:")
+        # Homestay & Khách sạn gợi ý ok nhất
+        st.markdown("### 🏡 Top Homestay & Khách Sạn Uy Tín / View Đẹp Nhất:")
+        hs_list = guide.get("homestay_recommendations", [])
+        if hs_list:
+            hs_cols = st.columns(min(len(hs_list), 3))
+            for h_idx, hs in enumerate(hs_list):
+                with hs_cols[h_idx % len(hs_cols)]:
+                    with st.container(border=True):
+                        st.markdown(f"#### 🏨 {hs.get('name', 'Homestay')}")
+                        st.caption(f"📍 {hs.get('address', '')}")
+                        st.markdown(f"💰 **Giá phòng:** `{hs.get('price_per_night', 'Đang cập nhật')}`")
+                        st.markdown(f"✨ **Điểm nổi bật:** {hs.get('highlight', '')}")
+                        st.caption(f"💬 *Review:* {hs.get('review_summary', '')}")
+                        maps_url = f"https://www.google.com/maps/search/?api=1&query={hs.get('name', '')}+{hs.get('address', '')}".replace(" ", "+")
+                        st.link_button("🗺️ Mở Google Maps", maps_url, use_container_width=True)
+
+        # Lịch trình chi tiết từng ngày tiện đường di chuyển
+        st.markdown("### 🗓️ Lịch Trình Chi Tiết Từng Ngày (Tối Ưu Tiện Đường):")
         day_list = guide.get("day_by_day_itinerary", [])
         for day_idx, day_item in enumerate(day_list):
             with st.expander(f"📌 **{day_item.get('day_title', f'Ngày {day_idx+1}')}**", expanded=True):
@@ -831,11 +866,17 @@ else: # MENU 4: 🧳 Cẩm Nang Du Lịch Full (Outfit + Phương Tiện + Lịc
                     with col_at:
                         st.markdown(f"⏰ `{act.get('time', '')}`")
                     with col_ad:
-                        st.markdown(f"**{act_idx+1}. {act.get('title', '')}**")
-                        st.caption(f"📍 {act.get('location', '')}")
-                        st.write(act.get('description', ''))
+                        st.markdown(f"### {act_idx+1}. {act.get('title', '')}")
+                        st.caption(f"📍 **Địa điểm:** {act.get('location', '')}")
+                        st.write(f"📝 **Trải nghiệm:** {act.get('description', '')}")
+                        
+                        if act.get('route_note'):
+                            st.caption(f"🚏 **Đường đi tiện lợi:** {act.get('route_note')}")
                         if act.get('pro_tip'):
-                            st.caption(f"💡 *Mẹo: {act.get('pro_tip')}*")
+                            st.info(f"💡 **Mẹo local:** {act.get('pro_tip')}")
+                            
+                        maps_url = f"https://www.google.com/maps/search/?api=1&query={act.get('title', '')}+{act.get('location', '')}".replace(" ", "+")
+                        st.link_button("🗺️ Mở vị trí Google Maps", maps_url)
                         st.markdown("---")
 
         # Quán ăn & Đặc sản khuyên thử
