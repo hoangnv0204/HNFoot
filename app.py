@@ -3,6 +3,7 @@ import json
 import re
 import random
 import warnings
+from datetime import datetime
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -45,8 +46,25 @@ st.markdown("""
         font-size: 1.05rem;
         margin-bottom: 1.2rem;
     }
+    .timeline-card {
+        border-left: 4px solid #FF4B4B;
+        padding-left: 15px;
+        margin-bottom: 20px;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# Tự động xác định mùa thực tế tại Hà Nội
+def get_current_hanoi_season():
+    month = datetime.now().month
+    if month in [3, 4, 5]:
+        return "Mùa Xuân (Thời tiết ấm áp, dạo phố ngắm hoa nở)"
+    elif month in [6, 7, 8]:
+        return "Mùa Hè (Nắng ấm chiều mát, cafe kem Tràng Tiền, Hồ Tây hoàng hôn)"
+    elif month in [9, 10, 11]:
+        return "Mùa Thu Hà Nội (Mùa đẹp nhất: Gió thu mát mẻ, lá vàng, cốm Vòng, cafe Phố Cổ)"
+    else:
+        return "Mùa Đông (Thời tiết se lạnh, đồ nướng/lẩu nóng hổi, phở gánh đêm)"
 
 # Khởi tạo Session State
 if "favorites" not in st.session_state:
@@ -55,6 +73,8 @@ if "food_results" not in st.session_state:
     st.session_state.food_results = []
 if "travel_results" not in st.session_state:
     st.session_state.travel_results = []
+if "itinerary_result" not in st.session_state:
+    st.session_state.itinerary_result = None
 
 # Đọc cấu hình ngầm từ môi trường / Streamlit Secrets
 api_key = os.getenv("GEMINI_API_KEY", "").strip()
@@ -68,7 +88,11 @@ default_model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
 st.markdown('<div class="main-title">🗺️ Khám Phá Hà Nội AI</div>', unsafe_allow_html=True)
 app_mode = st.radio(
     "Chọn danh mục khám phá:",
-    options=["🍲 Khám Phá Ẩm Thực", "🎡 Địa Điểm Đi Chơi & Giải Trí"],
+    options=[
+        "🍲 Khám Phá Ẩm Thực",
+        "🎡 Địa Điểm Đi Chơi & Giải Trí",
+        "🗓️ Lịch Trình Tự Động (Theo Mùa & Thời Gian Thật)"
+    ],
     horizontal=True
 )
 
@@ -80,7 +104,7 @@ with st.sidebar:
 
     selected_district = st.selectbox(
         "📍 Khu vực (Quận):",
-        ["Tất cả Hà Nội", "Hoàn Kiếm", "Ba Đình", "Đống Đa", "Hai Bà Trưng", "Cầu Giấy", "Tây Hồ", "Thanh Xuân", "Nam Từ Liêm", "Bắc Từ Liêm", "Hoàng Mai", "Long Biên", "Hà Đông"]
+        ["Tất cả Hà Nội", "Hoàn Kiếm & Phố Cổ", "Ba Đình", "Đống Đa", "Hai Bà Trưng", "Cầu Giấy", "Tây Hồ", "Thanh Xuân", "Nam Từ Liêm", "Bắc Từ Liêm", "Hoàng Mai", "Long Biên", "Hà Đông"]
     )
 
     if app_mode == "🍲 Khám Phá Ẩm Thực":
@@ -100,7 +124,9 @@ with st.sidebar:
             "💰 Mức ngân sách / người:",
             options=["Mọi mức giá", "Sinh viên (< 50k)", "Bình dân (50k - 150k)", "Khá (150k - 300k)", "Sang chảnh (> 300k)"]
         )
-    else: # Địa Điểm Đi Chơi
+        btn_filter_search = st.button("✨ Khám Phá Theo Bộ Lọc", use_container_width=True, type="primary")
+
+    elif app_mode == "🎡 Địa Điểm Đi Chơi & Giải Trí":
         selected_activity_type = st.selectbox(
             "🎭 Loại hình đi chơi / Giải trí:",
             ["Tất cả loại hình", "Cafe view đẹp / Check-in", "Công viên / Không gian xanh", "Bảo tàng / Di tích lịch sử", "Khu vui chơi / Game Center", "Phố bộ hành / Chợ đêm", "Hồ Tây / Hẹn hò lãng mạn", "Bar / Pub / Chill đêm"]
@@ -113,8 +139,26 @@ with st.sidebar:
             "💰 Mức chi phí dự kiến:",
             options=["Mọi mức giá", "Miễn phí (0đ)", "Tiết kiệm (< 50k)", "Vừa phải (50k - 200k)", "Cao cấp (> 200k)"]
         )
+        btn_filter_search = st.button("✨ Khám Phá Theo Bộ Lọc", use_container_width=True, type="primary")
 
-    btn_filter_search = st.button("✨ Khám Phá Theo Bộ Lọc", use_container_width=True, type="primary")
+    else: # Lịch trình ngẫu nhiên theo mùa
+        selected_day_type = st.selectbox(
+            "📅 Ngày đi chơi:",
+            ["Tự động (Hôm nay)", "Ngày trong tuần (T2 - T6)", "Cuối tuần (T7 - CN / Phố đi bộ)"]
+        )
+        selected_duration = st.selectbox(
+            "⏱️ Thời lượng chuyến đi:",
+            ["Cả ngày (Sáng ➔ Tối)", "Buổi Sáng & Trưa (7h - 13h)", "Buổi Chiều & Tối (14h - 21h)", "Tối & Ăn Đêm (18h - 24h)"]
+        )
+        selected_season_input = st.selectbox(
+            "🍂 Mùa trong năm:",
+            ["Tự động (Theo mùa thật hiện tại)", "Mùa Thu Hà Nội (Đẹp nhất)", "Mùa Hè (Sôi động / Hồ Tây)", "Mùa Đông (Se lạnh / Đồ nướng lẩu)", "Mùa Xuân (Dạo phố / Chơi Tết)"]
+        )
+        selected_vibe_itinerary = st.selectbox(
+            "🎨 Phong cách trải nghiệm:",
+            ["Chill & Thư giãn", "Check-in & Sống ảo", "Ẩm thực & Food Tour", "Văn hóa & Lịch sử Phố Cổ", "Hẹn hò lãng mạn cặp đôi"]
+        )
+        btn_filter_search = st.button("🎲 Tạo Lịch Trình Ngẫu Nhiên", use_container_width=True, type="primary")
     
     st.markdown("---")
     
@@ -185,7 +229,7 @@ def search_ai_recommendations(mode, query_text, district, cat_or_type, extra1, e
           }}
         ]
         """
-    else: # Travel / Đi chơi
+    elif mode == "travel":
         prompt = f"""
         Bạn là một hướng dẫn viên du lịch và chuyên gia trải nghiệm bản địa sành sỏi tại Hà Nội.
         Nhiệm vụ của bạn: Tìm kiếm và tổng hợp các địa điểm đi chơi, giải trí, check-in hot nhất tại Hà Nội theo các bộ lọc tiêu chí sau:
@@ -214,12 +258,46 @@ def search_ai_recommendations(mode, query_text, district, cat_or_type, extra1, e
           }}
         ]
         """
+    else: # Mode: itinerary
+        season_desc = get_current_hanoi_season() if "Tự động" in extra2 else extra2
+        day_desc = datetime.now().strftime("Hôm nay (%A, %d/%m/%Y)") if "Tự động" in cat_or_type else cat_or_type
+        
+        prompt = f"""
+        Bạn là một chuyên gia du lịch bản địa sành sỏi tại Hà Nội.
+        Nhiệm vụ của bạn: Lên MỘT LỊCH TRÌNH ĐI CHƠI & ĂN UỐNG NGẪU NHIÊN, TỐI ƯU VÀ HẤP DẪN DÀNH CHO HÀ NỘI dựa theo thời tiết và mùa thực tế.
+        
+        - Khu vực ưu tiên: {district}
+        - Ngày trong tuần: {day_desc}
+        - Thời lượng chuyến đi: {extra1}
+        - Mùa & Thời tiết: {season_desc}
+        - Phong cách chuyến đi: {budget_or_cost}
+        - Yêu cầu thêm: "{query_text if query_text.strip() else 'Tự động tạo lịch trình ngẫu nhiên độc đáo'}"
+
+        Yêu cầu quan trọng:
+        1. Thiết kế từ 3 đến 5 chặng dừng chân nối tiếp nhau hợp lý về thời gian, khoảng cách địa lý và thời tiết theo mùa tại Hà Nội.
+        2. Kết hợp hài hòa giữa món ăn ngon bản địa + địa điểm đi chơi/cafe chill check-in.
+        3. Xuất duy nhất một JSON Object thuần túy (không markdown bọc ngoài, không text thừa) theo mẫu:
+        {{
+          "itinerary_title": "Tên lịch trình hấp dẫn ngẫu nhiên",
+          "season_vibe": "Đánh giá không khí mùa và lời khuyên chuẩn bị (trang phục, ô dù...)",
+          "estimated_budget": "Mức ngân sách tổng dự kiến / người (VNĐ)",
+          "timeline": [
+            {{
+              "time": "08:00 - 09:30",
+              "activity_title": "Tên hoạt động / Điểm đến",
+              "location": "Địa chỉ / Tên quán hoặc địa điểm cụ thể",
+              "description": "Chi tiết trải nghiệm (món nên gọi hoặc góc sống ảo)",
+              "pro_tip": "Mẹo local (ví dụ: gửi xe ở đâu, nên đi giờ nào...)"
+            }}
+          ]
+        }}
+        """
 
     for current_model in models_to_try:
         for mode_title, tools_config in configs_to_try:
             for attempt in range(2):
                 try:
-                    config_kwargs = {"temperature": 0.3}
+                    config_kwargs = {"temperature": 0.4 if mode == "itinerary" else 0.3}
                     if tools_config:
                         config_kwargs["tools"] = tools_config
 
@@ -343,7 +421,7 @@ if app_mode == "🍲 Khám Phá Ẩm Thực":
                     else:
                         st.caption("✅ Đã lưu vào danh sách")
 
-else: # MENU: 🎡 Địa Điểm Đi Chơi & Giải Trí
+elif app_mode == "🎡 Địa Điểm Đi Chơi & Giải Trí":
     st.markdown('<div class="sub-title">Khám phá địa điểm đi chơi, cafe view đẹp, khu giải trí & check-in hot nhất Hà Nội</div>', unsafe_allow_html=True)
 
     user_query = st.text_input(
@@ -436,3 +514,96 @@ else: # MENU: 🎡 Địa Điểm Đi Chơi & Giải Trí
                             st.rerun()
                     else:
                         st.caption("✅ Đã lưu vào danh sách")
+
+else: # MENU: 🗓️ Lịch Trình Tự Động (Theo Mùa & Thời Gian Thật)
+    st.markdown('<div class="sub-title">Tự động thiết kế lịch trình đi chơi & ăn uống trọn gói ngẫu nhiên theo mùa và thời gian thực Hà Nội</div>', unsafe_allow_html=True)
+
+    current_season_text = get_current_hanoi_season()
+    st.info(f"🌿 **Thời tiết & Mùa hiện tại ở Hà Nội:** {current_season_text}")
+
+    user_query = st.text_input(
+        "Nhập mong muốn lịch trình tùy chọn (Tùy chọn):",
+        placeholder="Ví dụ: lịch trình chill phố cổ ngày thu, tour ẩm thực tối thứ 7, hẹn hò ngắm hoàng hôn...",
+        label_visibility="collapsed"
+    )
+
+    st.caption("💡 **Gợi ý chủ đề hot (Bấm để tạo ngay):**")
+    tag_cols = st.columns(5)
+    quick_itin_tags = [
+        "🍂 Lịch trình Mùa Thu Phố Cổ",
+        "🚲 Lịch trình Chiều Tối Hồ Tây",
+        "🍜 Food Tour Bún Phở 1 Ngày",
+        "📸 Check-in Sống Ảo Hà Nội",
+        "🕯️ Hẹn Hò Lãng Mạn Tối CN"
+    ]
+    selected_tag = None
+    for i, tag in enumerate(quick_itin_tags):
+        with tag_cols[i]:
+            if st.button(tag, key=f"itin_tag_{i}", use_container_width=True):
+                selected_tag = tag.split(" ", 1)[1]
+
+    col_btn1, col_btn2 = st.columns([3, 1])
+    with col_btn1:
+        btn_search = st.button("🎲 Tạo Lịch Trình Ngẫu Nhiên", use_container_width=True, type="primary")
+    with col_btn2:
+        btn_random = st.button("✨ Đổi Chủ Đề Ngẫu Nhiên", use_container_width=True)
+
+    if btn_random:
+        random_itin_prompts = [
+            "Một ngày mùa thu dạo chơi phố cổ Hà Nội và thưởng thức cafe trứng",
+            "Lịch trình chiều tối chill Hồ Tây đạp xe và ngắm hoàng hôn",
+            "Tour khám phá bảo tàng nghệ thuật và cafe vintage lãng mạn",
+            "Hành trình săn đồ ăn đêm và trải nghiệm phố đi bộ",
+            "Lịch trình hẹn hò cặp đôi ấm cúng ăn steak và ngắm thành phố"
+        ]
+        user_query = random.choice(random_itin_prompts)
+        st.info(f"💡 AI đang lên lịch trình: **{user_query}**")
+        btn_search = True
+
+    if selected_tag:
+        user_query = selected_tag
+        st.info(f"💡 Bạn đã chọn: **{user_query}**")
+        btn_search = True
+
+    should_search = btn_search or btn_filter_search
+
+    if should_search:
+        if not api_key:
+            st.error("⚠️ Hệ thống đang bảo trì kết nối AI. Vui lòng thử lại sau!")
+        else:
+            spinner_msg = f"🤖 AI đang lên lịch trình tối ưu ngẫu nhiên cho bạn..."
+                
+            with st.spinner(spinner_msg):
+                results = search_ai_recommendations("itinerary", user_query, selected_district, selected_day_type, selected_duration, selected_season_input, selected_vibe_itinerary, api_key, default_model)
+                if results and isinstance(results, dict):
+                    st.session_state.itinerary_result = results
+
+    if st.session_state.itinerary_result:
+        itin = st.session_state.itinerary_result
+        st.markdown("---")
+        st.subheader(f"🚩 {itin.get('itinerary_title', 'Lịch Trình Đi Chơi & Ăn Uống Hà Nội')}")
+        
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            st.info(f"🌿 **Vibe & Thời tiết:** {itin.get('season_vibe', 'Thời tiết lý tưởng')}")
+        with col_m2:
+            st.success(f"💰 **Ngân sách tổng dự kiến:** `{itin.get('estimated_budget', '200.000 - 500.000 VNĐ / người')}`")
+
+        st.markdown("### 🗺️ Chi Tiết Hành Trình Từng Chặng:")
+        
+        timeline_list = itin.get("timeline", [])
+        for step_idx, step in enumerate(timeline_list):
+            with st.container(border=True):
+                col_t, col_act = st.columns([1.2, 4])
+                with col_t:
+                    st.markdown(f"#### ⏰ `{step.get('time', '')}`")
+                    st.caption(f"Chặng {step_idx+1}/{len(timeline_list)}")
+                with col_act:
+                    st.markdown(f"### {step_idx+1}. {step.get('activity_title', '')}")
+                    st.markdown(f"📍 **Địa điểm:** {step.get('location', '')}")
+                    st.markdown(f"📝 **Trải nghiệm:** {step.get('description', '')}")
+                    if step.get('pro_tip'):
+                        st.info(f"💡 **Mẹo local:** {step.get('pro_tip')}")
+                    
+                    maps_url = f"https://www.google.com/maps/search/?api=1&query={step.get('location', '')}".replace(" ", "+")
+                    st.link_button("🗺️ Mở vị trí Google Maps", maps_url)
