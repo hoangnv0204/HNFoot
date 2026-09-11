@@ -331,8 +331,8 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
                 type="primary"
             )
         with col_doc2:
-            escaped_tsv = tsv_data.replace("`", "\\`").replace("\n", "\\n").replace("\r", "")
-            escaped_html = full_html_table.replace("`", "\\`").replace("\n", " ")
+            escaped_tsv = tsv_data.replace("\\", "\\\\").replace("`", "\\`").replace("\r", "")
+            escaped_html = full_html_table.replace("\\", "\\\\").replace("`", "\\`").replace("\r", "")
             copy_html = f"""
             <script>
             function copySheetsData() {{
@@ -345,25 +345,36 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
                         'text/html': blobHtml,
                         'text/plain': blobText
                     }});
-                    navigator.clipboard.write([item]);
+                    navigator.clipboard.write([item]).then(function() {{
+                        document.getElementById('status').innerHTML = '✅ <b>Đã chép dữ liệu 5 cột!</b> Bấm Ctrl+V tại Google Sheets!';
+                    }}).catch(function(err) {{
+                        navigator.clipboard.writeText(tsvText);
+                        document.getElementById('status').innerHTML = '✅ <b>Đã chép dữ liệu TSV 5 cột!</b> Bấm Ctrl+V tại Google Sheets!';
+                    }});
                 }} catch (e) {{
                     const tsvFallback = `{escaped_tsv}`;
                     if (navigator.clipboard && navigator.clipboard.writeText) {{
                         navigator.clipboard.writeText(tsvFallback);
                     }}
+                    document.getElementById('status').innerHTML = '✅ <b>Đã chép dữ liệu 5 cột!</b> Bấm Ctrl+V tại Google Sheets!';
                 }}
             }}
             </script>
-            <a href="https://sheets.new" target="_blank" onclick="copySheetsData()" style="display: block; width: 100%; text-align: center; padding: 11px 16px; background-color: #0f9d58; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); box-sizing: border-box;">
-                🚀 Mở Trực Tiếp Trên Google Sheets
-            </a>
-            <div style="margin-top: 8px; font-size: 12px; color: #0b8043; background: #e6f4ea; padding: 8px; border-radius: 4px; font-weight: bold; text-align: center;">
-                ✨ Đã kích hoạt tự động chép 5 cột! Khi tab Google Sheets mở ra, bấm <b>Ctrl + V</b> tại ô A1 để dán đầy đủ ngay!
+            <div style="display: flex; gap: 8px;">
+                <a href="https://sheets.new" target="_blank" onclick="copySheetsData()" style="flex: 1; text-align: center; padding: 11px 12px; background-color: #0f9d58; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); box-sizing: border-box;">
+                    🚀 1. Mở Google Sheets
+                </a>
+                <button onclick="copySheetsData()" style="flex: 1; text-align: center; padding: 11px 12px; background-color: #1a73e8; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+                    📋 2. Sao Chép Bảng 5 Cột
+                </button>
+            </div>
+            <div id="status" style="margin-top: 8px; font-size: 12px; color: #0b8043; background: #e6f4ea; padding: 8px; border-radius: 4px; font-weight: bold; text-align: center;">
+                👉 Bấm nút <b>"1. Mở Google Sheets"</b> (tự mở tab mới) ➔ Chọn ô A1 ➔ Nhấn <b>Ctrl + V</b> để dán bảng 5 cột đầy đủ!
             </div>
             """
             if hasattr(st, "html"):
                 st.html(copy_html)
             else:
                 import streamlit.components.v1 as components
-                components.html(copy_html, height=110)
+                components.html(copy_html, height=120)
 
