@@ -195,9 +195,10 @@ def search_ai_recommendations(mode, query_text, district, cat_or_type, extra1, e
           ],
           "food_recommendations": [
             {{
-              "name": "Tên quán ăn / Đặc sản",
-              "address": "Địa chỉ cụ thể",
-              "dishes": "Món đặc sản nên thử",
+              "name": "Tên quán ăn / Quán đặc sản",
+              "dishes": "Tên món ăn đặc sản nhất định phải thử",
+              "address": "Địa chỉ cụ thể tại điểm đến",
+              "opening_hours": "Thời gian mở cửa (Ví dụ: 07:00 - 22:00 hoặc 06:00 - 13:00)",
               "price_range": "Khoảng giá (VNĐ)"
             }}
           ],

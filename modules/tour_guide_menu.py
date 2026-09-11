@@ -140,12 +140,100 @@ def generate_excel_camanang(guide, dest_input):
             ws.row_dimensions[current_row].height = 50
             current_row += 1
 
-    # Widths
+    # Widths for Sheet 1
     ws.column_dimensions['A'].width = 18
     ws.column_dimensions['B'].width = 42
     ws.column_dimensions['C'].width = 16
     ws.column_dimensions['D'].width = 32
     ws.column_dimensions['E'].width = 32
+
+    # ==========================================
+    # SHEET 2: MÓN ĂN NHẤT ĐỊNH PHẢI THỬ
+    # ==========================================
+    ws2 = wb.create_sheet(title="Đặc Sản Phải Thử")
+    ws2.views.sheetView[0].showGridLines = True
+
+    # Title Banner Row
+    ws2.merge_cells("A1:E1")
+    title_cell2 = ws2["A1"]
+    title_cell2.value = f"🍜 TOP MÓN ĂN & ĐẶC SẢN NHẤT ĐỊNH PHẢI THỬ TẠI {dest_input.upper()}"
+    title_cell2.font = Font(name="Segoe UI", size=14, bold=True, color="FFFFFF")
+    title_cell2.fill = PatternFill(start_color="D93025", end_color="D93025", fill_type="solid")
+    title_cell2.alignment = Alignment(horizontal="center", vertical="center")
+    ws2.row_dimensions[1].height = 36
+
+    # Sub-info Row
+    ws2.merge_cells("A2:E2")
+    sub_cell2 = ws2["A2"]
+    sub_cell2.value = "Danh sách quán ăn, đặc sản nổi tiếng kèm địa chỉ, giờ mở cửa & khoảng giá"
+    sub_cell2.font = Font(name="Segoe UI", size=10, italic=True, color="333333")
+    sub_cell2.fill = PatternFill(start_color="FCE8E6", end_color="FCE8E6", fill_type="solid")
+    sub_cell2.alignment = Alignment(horizontal="center", vertical="center")
+    ws2.row_dimensions[2].height = 24
+
+    ws2.row_dimensions[3].height = 8
+
+    # Headers for Sheet 2
+    headers2 = ["🍲 Tên Quán / Món Ăn", "📍 Địa Điểm (Địa Chỉ)", "⏰ Thời Gian Mở Cửa", "💰 Giá Tham Khảo", "🗺️ Google Maps"]
+    header_fill2 = PatternFill(start_color="E37400", end_color="E37400", fill_type="solid")
+    
+    for col_idx, h_text in enumerate(headers2, start=1):
+        cell = ws2.cell(row=4, column=col_idx, value=h_text)
+        cell.fill = header_fill2
+        cell.font = header_font
+        cell.alignment = center_align
+    ws2.row_dimensions[4].height = 28
+
+    food_list = guide.get("food_recommendations", [])
+    current_row2 = 5
+    for f_idx, food in enumerate(food_list):
+        f_name = food.get("name", "Quán ăn").strip()
+        f_dishes = food.get("dishes", "").strip()
+        f_name_full = f"{f_name}\nMón đặc sản: {f_dishes}" if f_dishes else f_name
+        
+        f_addr = food.get("address", "Đang cập nhật").strip()
+        f_hours = food.get("opening_hours") or food.get("hours") or "07:00 - 22:00 (Mở cả ngày)"
+        f_price = food.get("price_range", "Đang cập nhật").strip()
+        
+        maps_url = f"https://www.google.com/maps/search/?api=1&query={f_name}+{f_addr}".replace(" ", "+")
+
+        c1 = ws2.cell(row=current_row2, column=1, value=f_name_full)
+        c2 = ws2.cell(row=current_row2, column=2, value=f_addr)
+        c3 = ws2.cell(row=current_row2, column=3, value=f"⏰ {f_hours}")
+        c4 = ws2.cell(row=current_row2, column=4, value=f_price)
+        c5 = ws2.cell(row=current_row2, column=5, value="🗺️ Xem Maps")
+        c5.hyperlink = maps_url
+
+        bg_color = "FFFFFF" if f_idx % 2 == 0 else "FEF7E0"
+        row_fill2 = PatternFill(start_color=bg_color, end_color=bg_color, fill_type="solid")
+
+        c1.font = Font(name="Segoe UI", size=10, bold=True, color="D93025")
+        c1.alignment = left_align
+
+        c2.font = Font(name="Segoe UI", size=10, color="333333")
+        c2.alignment = left_align
+
+        c3.font = Font(name="Segoe UI", size=10, bold=True, color="1A73E8")
+        c3.alignment = center_align
+
+        c4.font = Font(name="Segoe UI", size=10, bold=True, color="0D652D")
+        c4.alignment = center_align
+
+        c5.font = Font(name="Segoe UI", size=10, bold=True, color="0F9D58", underline="single")
+        c5.alignment = center_align
+
+        for c in [c1, c2, c3, c4, c5]:
+            c.fill = row_fill2
+            c.border = thin_border
+
+        ws2.row_dimensions[current_row2].height = 42
+        current_row2 += 1
+
+    ws2.column_dimensions['A'].width = 32
+    ws2.column_dimensions['B'].width = 40
+    ws2.column_dimensions['C'].width = 24
+    ws2.column_dimensions['D'].width = 20
+    ws2.column_dimensions['E'].width = 16
 
     output = io.BytesIO()
     wb.save(output)
@@ -362,6 +450,8 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
                         st.markdown(f"#### 🍽️ {food.get('name', 'Quán ăn')}")
                         st.caption(f"📍 {food.get('address', '')}")
                         st.markdown(f"😋 **Món ngon:** `{food.get('dishes', '')}`")
+                        f_hours = food.get('opening_hours') or food.get('hours') or '07:00 - 22:00'
+                        st.markdown(f"⏰ **Mở cửa:** `{f_hours}`")
                         st.markdown(f"💰 `{food.get('price_range', '')}`")
                         maps_url = f"https://www.google.com/maps/search/?api=1&query={food.get('name', '')}+{food.get('address', '')}".replace(" ", "+")
                         st.link_button("🗺️ Mở Google Maps", maps_url, use_container_width=True)
