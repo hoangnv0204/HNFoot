@@ -215,60 +215,83 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
                         maps_url = f"https://www.google.com/maps/search/?api=1&query={food.get('name', '')}+{food.get('address', '')}".replace(" ", "+")
                         st.link_button("🗺️ Mở Google Maps", maps_url, use_container_width=True)
 
-        # Google Docs Export Section (5 Cột)
+        # Google Sheets Export Section (5 Cột)
         st.markdown("---")
-        st.markdown("### 📝 Tạo Document Google Docs (Bảng Cẩm Nang Du Lịch 5 Cột)")
-        st.caption("Xuất toàn bộ lịch trình chuyến đi thành bảng chuẩn 5 cột (`Thời gian`, `Lịch Trình`, `Google Maps`, `Note`, `Gợi ý tone màu quần áo`) sẵn sàng để dán vào Google Docs hoặc tải về tệp Document.")
+        st.markdown("### 📊 Tạo Bảng Google Sheets (Cẩm Nang Du Lịch 5 Cột)")
+        st.caption("Xuất toàn bộ lịch trình chuyến đi thành bảng chuẩn 5 cột (`Thời gian`, `Lịch Trình`, `Google Maps`, `Note`, `Gợi ý tone màu quần áo`) sẵn sàng để dán vào Google Sheets hoặc tải về tệp Excel / CSV.")
+
+        import pandas as pd
 
         outfit_general = guide.get("outfit_guide", {})
         gen_colors = ", ".join(outfit_general.get("recommended_colors", []))
         gen_style = outfit_general.get("style_name", "")
         fallback_outfit = f"Tone: {gen_colors} ({gen_style})" if gen_colors else gen_style
 
+        sheet_data = []
         table_rows_html = []
         day_list = guide.get("day_by_day_itinerary", [])
+
         for day_idx, day_item in enumerate(day_list):
             day_title = day_item.get("day_title", f"Ngày {day_idx+1}")
             activities = day_item.get("activities", [])
             for act_idx, act in enumerate(activities):
-                time_str = f"<b>{day_title.split(':')[0]}</b><br/>{act.get('time', '')}"
+                day_tag = day_title.split(':')[0].strip()
+                time_range = act.get('time', '')
+                time_val = f"{day_tag} | {time_range}"
+                
                 title = act.get('title', '')
                 loc = act.get('location', '')
                 desc = act.get('description', '')
-                itinerary_str = f"<b>{title}</b><br/>📍 {loc}<br/><i>{desc}</i>"
+                itinerary_val = f"{title} - {loc} ({desc})" if loc else f"{title} ({desc})"
                 
                 maps_url = f"https://www.google.com/maps/search/?api=1&query={title}+{loc}".replace(" ", "+")
-                maps_link_html = f'<a href="{maps_url}" target="_blank" style="color: #1a73e8; font-weight: bold;">🗺️ Xem Maps</a>'
                 
                 notes = []
                 if act.get('route_note'):
-                    notes.append(f"🚏 {act.get('route_note')}")
+                    notes.append(f"🚏 Đường đi: {act.get('route_note')}")
                 if act.get('pro_tip'):
-                    notes.append(f"💡 {act.get('pro_tip')}")
-                note_str = "<br/>".join(notes) if notes else "—"
+                    notes.append(f"💡 Mẹo: {act.get('pro_tip')}")
+                note_val = " | ".join(notes) if notes else "—"
 
-                outfit_str = act.get('outfit_suggestion') or fallback_outfit or "Trang phục năng động, thoải mái"
+                outfit_val = act.get('outfit_suggestion') or fallback_outfit or "Trang phục năng động, thoải mái"
+
+                sheet_data.append({
+                    "Thời gian": time_val,
+                    "Lịch Trình": itinerary_val,
+                    "Google Maps": maps_url,
+                    "Note": note_val,
+                    "Gợi ý tone màu quần áo": outfit_val
+                })
+
+                time_html = f"<b>{day_tag}</b><br/>{time_range}"
+                itinerary_html = f"<b>{title}</b><br/>📍 {loc}<br/><i>{desc}</i>" if loc else f"<b>{title}</b><br/><i>{desc}</i>"
+                maps_link_html = f'<a href="{maps_url}" target="_blank" style="color: #0f9d58; font-weight: bold;">🗺️ Xem Maps</a>'
+                note_html = "<br/>".join(notes) if notes else "—"
 
                 table_rows_html.append(f"""
                 <tr>
-                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">{time_str}</td>
-                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">{itinerary_str}</td>
+                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">{time_html}</td>
+                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">{itinerary_html}</td>
                     <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; text-align: center; font-size: 13px;">{maps_link_html}</td>
-                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">{note_str}</td>
-                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">👗 {outfit_str}</td>
+                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">{note_html}</td>
+                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">👗 {outfit_val}</td>
                 </tr>
                 """)
+
+        df_sheet = pd.DataFrame(sheet_data)
+        csv_data = df_sheet.to_csv(index=False, encoding='utf-8-sig')
+        tsv_data = df_sheet.to_csv(index=False, sep='\t', encoding='utf-8')
 
         table_body = "\n".join(table_rows_html)
         full_html_table = f"""
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; color: #333333;">
             <thead>
-                <tr style="background-color: #1a73e8; color: #ffffff; text-align: center; font-weight: bold; font-size: 14px;">
-                    <th style="width: 15%; padding: 10px; border: 1px solid #1557b0;">Thời gian</th>
-                    <th style="width: 30%; padding: 10px; border: 1px solid #1557b0;">Lịch Trình</th>
-                    <th style="width: 15%; padding: 10px; border: 1px solid #1557b0;">Google Maps</th>
-                    <th style="width: 20%; padding: 10px; border: 1px solid #1557b0;">Note</th>
-                    <th style="width: 20%; padding: 10px; border: 1px solid #1557b0;">Gợi ý tone màu quần áo</th>
+                <tr style="background-color: #0f9d58; color: #ffffff; text-align: center; font-weight: bold; font-size: 14px;">
+                    <th style="width: 15%; padding: 10px; border: 1px solid #0b8043;">Thời gian</th>
+                    <th style="width: 30%; padding: 10px; border: 1px solid #0b8043;">Lịch Trình</th>
+                    <th style="width: 15%; padding: 10px; border: 1px solid #0b8043;">Google Maps</th>
+                    <th style="width: 20%; padding: 10px; border: 1px solid #0b8043;">Note</th>
+                    <th style="width: 20%; padding: 10px; border: 1px solid #0b8043;">Gợi ý tone màu quần áo</th>
                 </tr>
             </thead>
             <tbody>
@@ -277,60 +300,46 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
         </table>
         """
 
-        full_doc_content = f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>{guide.get('trip_title', 'Cẩm Nang Du Lịch')}</title>
-</head>
-<body style="font-family: Arial, sans-serif; padding: 20px;">
-<h2 style="color: #1a73e8;">🧳 {guide.get('trip_title', 'Cẩm Nang Du Lịch')}</h2>
-<p><b>🌤️ Thời tiết:</b> {guide.get('weather_vibe', '')}</p>
-<p><b>💰 Mức chi phí dự kiến:</b> {guide.get('estimated_total_cost', '')}</p>
-<br/>
-{full_html_table}
-</body>
-</html>
-"""
-
-        with st.expander("👁️ Xem trước Bảng Google Docs (5 Cột)", expanded=True):
-            st.markdown(full_html_table, unsafe_allow_html=True)
+        with st.expander("👁️ Xem trước Bảng Google Sheets (5 Cột)", expanded=True):
+            st.dataframe(df_sheet, use_container_width=True)
 
         col_doc1, col_doc2, col_doc3 = st.columns([2, 2, 2])
         with col_doc1:
-            st.link_button("🔗 Mở Google Docs Mới (docs.new)", "https://docs.new", use_container_width=True, type="primary")
+            st.link_button("🔗 Mở Google Sheets Mới (sheets.new)", "https://sheets.new", use_container_width=True, type="primary")
         with col_doc2:
             st.download_button(
-                label="📥 Tải tệp Document (.doc)",
-                data=full_doc_content.encode("utf-8"),
-                file_name=f"Cam_Nang_Du_Lich_{dest_input}.doc",
-                mime="application/msword",
+                label="📥 Tải tệp CSV (.csv)",
+                data=csv_data.encode("utf-8-sig"),
+                file_name=f"Cam_Nang_Du_Lich_{dest_input}.csv",
+                mime="text/csv",
                 use_container_width=True
             )
         with col_doc3:
+            escaped_tsv = tsv_data.replace("`", "\\`").replace("\n", "\\n").replace("\r", "")
             escaped_html = full_html_table.replace("`", "\\`").replace("\n", " ")
             copy_html = f"""
             <script>
-            function copyDocsTable() {{
-                const tableHtml = `{escaped_html}`;
-                const blobHtml = new Blob([tableHtml], {{ type: 'text/html' }});
-                const blobText = new Blob(['Cẩm Nang Du Lịch 5 Cột'], {{ type: 'text/plain' }});
+            function copySheetsTable() {{
+                const tsvText = `{escaped_tsv}`;
+                const htmlText = `{escaped_html}`;
+                const blobHtml = new Blob([htmlText], {{ type: 'text/html' }});
+                const blobText = new Blob([tsvText], {{ type: 'text/plain' }});
                 const item = new ClipboardItem({{
                     'text/html': blobHtml,
                     'text/plain': blobText
                 }});
                 navigator.clipboard.write([item]).then(function() {{
-                    document.getElementById('status').innerText = '✅ Đã chép bảng 5 cột! Hãy mở Docs.new và bấm Ctrl+V để dán!';
+                    document.getElementById('status').innerText = '✅ Đã chép bảng 5 cột! Mở sheets.new bấm Ctrl+V để dán!';
                 }}).catch(function(err) {{
-                    document.getElementById('status').innerText = '⚠️ Đã copy text! Bạn hãy dán vào Google Docs.';
-                    navigator.clipboard.writeText(tableHtml);
+                    navigator.clipboard.writeText(tsvText);
+                    document.getElementById('status').innerText = '✅ Đã chép dữ liệu CSV/TSV! Bấm Ctrl+V vào Google Sheets!';
                 }});
             }}
             </script>
-            <button onclick="copyDocsTable()" style="width:100%; padding: 9px 16px; background-color:#34a853; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:14px;">
-                📋 Sao Chép Bảng Định Dạng
+            <button onclick="copySheetsTable()" style="width:100%; padding: 9px 16px; background-color:#0f9d58; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:14px;">
+                📋 Sao Chép Cho Google Sheets
             </button>
-            <div id="status" style="margin-top:6px; font-size:12px; color:#1b5e20; font-weight:bold;"></div>
+            <div id="status" style="margin-top:6px; font-size:12px; color:#0b8043; font-weight:bold;"></div>
             """
             if hasattr(st, "html"):
                 st.html(copy_html)
