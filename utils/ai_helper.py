@@ -228,7 +228,10 @@ def search_ai_recommendations(mode, query_text, district, cat_or_type, extra1, e
                 except Exception as e:
                     err_str = str(e)
                     print(f"[DEBUG_LOG] {current_model} ({mode_title}) attempt {attempt+1} failed: {err_str}")
-                    if "503" in err_str or "UNAVAILABLE" in err_str:
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        time.sleep(2)
+                        continue
+                    elif "503" in err_str or "UNAVAILABLE" in err_str:
                         time.sleep(1)
                         continue
                     else:

@@ -308,7 +308,6 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
                 use_container_width=True
             )
         with col_doc3:
-            import streamlit.components.v1 as components
             escaped_html = full_html_table.replace("`", "\\`").replace("\n", " ")
             copy_html = f"""
             <script>
@@ -333,5 +332,9 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
             </button>
             <div id="status" style="margin-top:6px; font-size:12px; color:#1b5e20; font-weight:bold;"></div>
             """
-            components.html(copy_html, height=75)
+            if hasattr(st, "html"):
+                st.html(copy_html)
+            else:
+                import streamlit.components.v1 as components
+                components.html(copy_html, height=75)
 
