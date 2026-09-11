@@ -1,3 +1,4 @@
+from datetime import datetime
 import io
 import random
 import streamlit as st
@@ -250,9 +251,10 @@ def render_tour_guide_sidebar():
         "⏱️ Thời gian chuyến đi:",
         ["3 ngày 2 đêm", "2 ngày 1 đêm", "1 ngày (Đi trong ngày)", "4 ngày 3 đêm", "5 ngày 4 đêm"]
     )
+    curr_month = datetime.now().month
     selected_time_guide = st.selectbox(
         "📅 Thời điểm đi (Mùa):",
-        ["Tự động (Theo tháng 8 hiện tại)", "Tháng này (Thời tiết thật)", "Mùa Xuân", "Mùa Hè", "Mùa Thu", "Mùa Đông"]
+        [f"Tự động (Theo tháng {curr_month} hiện tại)", "Tháng này (Thời tiết thật)", "Mùa Xuân", "Mùa Hè", "Mùa Thu", "Mùa Đông"]
     )
     selected_departure_time = st.selectbox(
         "🌅 Khung giờ xuất phát:",
