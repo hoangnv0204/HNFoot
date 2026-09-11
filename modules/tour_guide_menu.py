@@ -303,23 +303,22 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
         with st.expander("👁️ Xem trước Bảng Google Sheets (5 Cột)", expanded=True):
             st.dataframe(df_sheet, use_container_width=True)
 
-        col_doc1, col_doc2, col_doc3 = st.columns([2, 2, 2])
+        col_doc1, col_doc2 = st.columns([1, 1])
         with col_doc1:
-            st.link_button("🔗 Mở Google Sheets Mới (sheets.new)", "https://sheets.new", use_container_width=True, type="primary")
-        with col_doc2:
             st.download_button(
-                label="📥 Tải tệp CSV (.csv)",
+                label="📥 Tải tệp CSV / Excel Đầy Đủ (.csv)",
                 data=csv_data.encode("utf-8-sig"),
                 file_name=f"Cam_Nang_Du_Lich_{dest_input}.csv",
                 mime="text/csv",
-                use_container_width=True
+                use_container_width=True,
+                type="primary"
             )
-        with col_doc3:
+        with col_doc2:
             escaped_tsv = tsv_data.replace("`", "\\`").replace("\n", "\\n").replace("\r", "")
             escaped_html = full_html_table.replace("`", "\\`").replace("\n", " ")
             copy_html = f"""
             <script>
-            function copySheetsTable() {{
+            function openAndCopySheets() {{
                 const tsvText = `{escaped_tsv}`;
                 const htmlText = `{escaped_html}`;
                 const blobHtml = new Blob([htmlText], {{ type: 'text/html' }});
@@ -328,16 +327,20 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
                     'text/html': blobHtml,
                     'text/plain': blobText
                 }});
+                
+                // Copy formatted 5-column table to clipboard
                 navigator.clipboard.write([item]).then(function() {{
-                    document.getElementById('status').innerText = '✅ Đã chép bảng 5 cột! Mở sheets.new bấm Ctrl+V để dán!';
+                    window.open('https://sheets.new', '_blank');
+                    document.getElementById('status').innerHTML = '🚀 <b>Đã chép tự động toàn bộ 5 cột & mở Google Sheets!</b><br/>👉 Bạn chỉ cần nhấn <b>Ctrl + V</b> (hoặc Cmd + V) tại ô A1 để dán bảng đầy đủ ngay!';
                 }}).catch(function(err) {{
                     navigator.clipboard.writeText(tsvText);
-                    document.getElementById('status').innerText = '✅ Đã chép dữ liệu CSV/TSV! Bấm Ctrl+V vào Google Sheets!';
+                    window.open('https://sheets.new', '_blank');
+                    document.getElementById('status').innerHTML = '🚀 <b>Đã chép dữ liệu & mở Google Sheets!</b><br/>👉 Bạn chỉ cần nhấn <b>Ctrl + V</b> tại ô A1 để dán!';
                 }});
             }}
             </script>
-            <button onclick="copySheetsTable()" style="width:100%; padding: 9px 16px; background-color:#0f9d58; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:14px;">
-                📋 Sao Chép Cho Google Sheets
+            <button onclick="openAndCopySheets()" style="width:100%; padding: 10px 16px; background-color:#0f9d58; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:15px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+                📊 Mở Trực Tiếp & Điền Đầy Đủ Google Sheets
             </button>
             <div id="status" style="margin-top:6px; font-size:12px; color:#0b8043; font-weight:bold;"></div>
             """
