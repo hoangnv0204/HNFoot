@@ -1,12 +1,16 @@
 import io
 import random
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import streamlit as st
 from utils.ai_helper import search_ai_recommendations
 
 
 def generate_excel_camanang(guide, dest_input):
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    except ImportError:
+        return None
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Cẩm Nang Du Lịch"
@@ -471,14 +475,24 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
 
         col_doc1, col_doc2 = st.columns([1, 1])
         with col_doc1:
-            st.download_button(
-                label="📥 Tải Tệp Excel Cẩm Nang Du Lịch (.xlsx)",
-                data=excel_data,
-                file_name=f"Cam_Nang_Du_Lich_{dest_input}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-                type="primary"
-            )
+            if excel_data:
+                st.download_button(
+                    label="📥 Tải Tệp Excel Cẩm Nang Du Lịch (.xlsx)",
+                    data=excel_data,
+                    file_name=f"Cam_Nang_Du_Lich_{dest_input}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    type="primary"
+                )
+            else:
+                st.download_button(
+                    label="📥 Tải Tệp CSV Cẩm Nang Du Lịch (.csv)",
+                    data=csv_data.encode("utf-8-sig"),
+                    file_name=f"Cam_Nang_Du_Lich_{dest_input}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    type="primary"
+                )
         with col_doc2:
             escaped_tsv = tsv_data.replace("\\", "\\\\").replace("`", "\\`").replace("\r", "")
             escaped_html = full_html_table.replace("\\", "\\\\").replace("`", "\\`").replace("\r", "")
