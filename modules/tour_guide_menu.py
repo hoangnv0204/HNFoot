@@ -335,35 +335,35 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
             escaped_html = full_html_table.replace("`", "\\`").replace("\n", " ")
             copy_html = f"""
             <script>
-            function openAndCopySheets() {{
-                const tsvText = `{escaped_tsv}`;
-                const htmlText = `{escaped_html}`;
-                const blobHtml = new Blob([htmlText], {{ type: 'text/html' }});
-                const blobText = new Blob([tsvText], {{ type: 'text/plain' }});
-                const item = new ClipboardItem({{
-                    'text/html': blobHtml,
-                    'text/plain': blobText
-                }});
-                
-                // Copy formatted 5-column table to clipboard
-                navigator.clipboard.write([item]).then(function() {{
-                    window.open('https://sheets.new', '_blank');
-                    document.getElementById('status').innerHTML = '🚀 <b>Đã chép tự động toàn bộ 5 cột & mở Google Sheets!</b><br/>👉 Bạn chỉ cần nhấn <b>Ctrl + V</b> (hoặc Cmd + V) tại ô A1 để dán bảng đầy đủ ngay!';
-                }}).catch(function(err) {{
-                    navigator.clipboard.writeText(tsvText);
-                    window.open('https://sheets.new', '_blank');
-                    document.getElementById('status').innerHTML = '🚀 <b>Đã chép dữ liệu & mở Google Sheets!</b><br/>👉 Bạn chỉ cần nhấn <b>Ctrl + V</b> tại ô A1 để dán!';
-                }});
+            function copySheetsData() {{
+                try {{
+                    const tsvText = `{escaped_tsv}`;
+                    const htmlText = `{escaped_html}`;
+                    const blobHtml = new Blob([htmlText], {{ type: 'text/html' }});
+                    const blobText = new Blob([tsvText], {{ type: 'text/plain' }});
+                    const item = new ClipboardItem({{
+                        'text/html': blobHtml,
+                        'text/plain': blobText
+                    }});
+                    navigator.clipboard.write([item]);
+                }} catch (e) {{
+                    const tsvFallback = `{escaped_tsv}`;
+                    if (navigator.clipboard && navigator.clipboard.writeText) {{
+                        navigator.clipboard.writeText(tsvFallback);
+                    }}
+                }}
             }}
             </script>
-            <button onclick="openAndCopySheets()" style="width:100%; padding: 10px 16px; background-color:#0f9d58; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:15px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
-                📊 Mở Trực Tiếp & Điền Đầy Đủ Google Sheets
-            </button>
-            <div id="status" style="margin-top:8px; font-size:13px; color:#0b8043; background:#e6f4ea; padding:8px; border-radius:4px; font-weight:bold;"></div>
+            <a href="https://sheets.new" target="_blank" onclick="copySheetsData()" style="display: block; width: 100%; text-align: center; padding: 11px 16px; background-color: #0f9d58; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); box-sizing: border-box;">
+                🚀 Mở Trực Tiếp Trên Google Sheets
+            </a>
+            <div style="margin-top: 8px; font-size: 12px; color: #0b8043; background: #e6f4ea; padding: 8px; border-radius: 4px; font-weight: bold; text-align: center;">
+                ✨ Đã kích hoạt tự động chép 5 cột! Khi tab Google Sheets mở ra, bấm <b>Ctrl + V</b> tại ô A1 để dán đầy đủ ngay!
+            </div>
             """
             if hasattr(st, "html"):
                 st.html(copy_html)
             else:
                 import streamlit.components.v1 as components
-                components.html(copy_html, height=75)
+                components.html(copy_html, height=110)
 
