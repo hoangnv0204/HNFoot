@@ -233,12 +233,27 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
 
         for day_idx, day_item in enumerate(day_list):
             day_title = day_item.get("day_title", f"Ngày {day_idx+1}")
+            
+            # Big Day Header Row in Table
+            table_rows_html.append(f"""
+            <tr style="background-color: #e6f4ea;">
+                <td colspan="5" style="padding: 12px 15px; border: 1px solid #0b8043; font-size: 15px; font-weight: 800; color: #0d652d; background: linear-gradient(90deg, #e6f4ea 0%, #ffffff 100%); letter-spacing: 0.5px;">
+                    📌 {day_title.upper()}
+                </td>
+            </tr>
+            """)
+
+            sheet_data.append({
+                "Thời gian": f"📌 {day_title.upper()}",
+                "Lịch Trình": "",
+                "Google Maps": "",
+                "Note": "",
+                "Gợi ý tone màu quần áo": ""
+            })
+
             activities = day_item.get("activities", [])
             for act_idx, act in enumerate(activities):
-                day_tag = day_title.split(':')[0].strip()
                 time_range = act.get('time', '')
-                time_val = f"{day_tag} | {time_range}"
-                
                 title = act.get('title', '')
                 loc = act.get('location', '')
                 desc = act.get('description', '')
@@ -250,31 +265,33 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
                 if act.get('route_note'):
                     notes.append(f"🚏 Đường đi: {act.get('route_note')}")
                 if act.get('pro_tip'):
-                    notes.append(f"💡 Mẹo: {act.get('pro_tip')}")
+                    notes.append(f"💡 Mẹo local: {act.get('pro_tip')}")
                 note_val = " | ".join(notes) if notes else "—"
 
                 outfit_val = act.get('outfit_suggestion') or fallback_outfit or "Trang phục năng động, thoải mái"
 
                 sheet_data.append({
-                    "Thời gian": time_val,
+                    "Thời gian": f"⏰ {time_range}",
                     "Lịch Trình": itinerary_val,
                     "Google Maps": maps_url,
                     "Note": note_val,
                     "Gợi ý tone màu quần áo": outfit_val
                 })
 
-                time_html = f"<b>{day_tag}</b><br/>{time_range}"
-                itinerary_html = f"<b>{title}</b><br/>📍 {loc}<br/><i>{desc}</i>" if loc else f"<b>{title}</b><br/><i>{desc}</i>"
-                maps_link_html = f'<a href="{maps_url}" target="_blank" style="color: #0f9d58; font-weight: bold;">🗺️ Xem Maps</a>'
+                time_html = f"⏰ <b>{time_range}</b>"
+                itinerary_html = f"<b>{title}</b><br/>📍 <i>{loc}</i><br/>📝 {desc}" if loc else f"<b>{title}</b><br/>📝 {desc}"
+                maps_link_html = f'<a href="{maps_url}" target="_blank" style="color: #0f9d58; font-weight: bold; text-decoration: none; display: inline-block; padding: 4px 8px; background: #e6f4ea; border-radius: 4px; border: 1px solid #0b8043;">🗺️ Mở Maps</a>'
                 note_html = "<br/>".join(notes) if notes else "—"
 
+                row_bg = "#ffffff" if act_idx % 2 == 0 else "#f9fbf9"
+
                 table_rows_html.append(f"""
-                <tr>
-                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">{time_html}</td>
-                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">{itinerary_html}</td>
-                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; text-align: center; font-size: 13px;">{maps_link_html}</td>
-                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">{note_html}</td>
-                    <td style="padding: 10px; border: 1px solid #cccccc; vertical-align: top; font-size: 13px;">👗 {outfit_val}</td>
+                <tr style="background-color: {row_bg};">
+                    <td style="padding: 10px; border: 1px solid #dcdcdc; vertical-align: top; font-size: 13px; font-weight: bold; color: #1a73e8; width: 14%;">{time_html}</td>
+                    <td style="padding: 10px; border: 1px solid #dcdcdc; vertical-align: top; font-size: 13px; width: 32%;">{itinerary_html}</td>
+                    <td style="padding: 10px; border: 1px solid #dcdcdc; vertical-align: top; text-align: center; font-size: 13px; width: 14%;">{maps_link_html}</td>
+                    <td style="padding: 10px; border: 1px solid #dcdcdc; vertical-align: top; font-size: 13px; width: 20%;">{note_html}</td>
+                    <td style="padding: 10px; border: 1px solid #dcdcdc; vertical-align: top; font-size: 13px; width: 20%; color: #d93025; font-weight: 500;">👗 {outfit_val}</td>
                 </tr>
                 """)
 
@@ -284,14 +301,14 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
 
         table_body = "\n".join(table_rows_html)
         full_html_table = f"""
-        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; color: #333333;">
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-family: 'Segoe UI', Arial, sans-serif; color: #333333; border: 1px solid #0b8043; border-radius: 8px; overflow: hidden;">
             <thead>
-                <tr style="background-color: #0f9d58; color: #ffffff; text-align: center; font-weight: bold; font-size: 14px;">
-                    <th style="width: 15%; padding: 10px; border: 1px solid #0b8043;">Thời gian</th>
-                    <th style="width: 30%; padding: 10px; border: 1px solid #0b8043;">Lịch Trình</th>
-                    <th style="width: 15%; padding: 10px; border: 1px solid #0b8043;">Google Maps</th>
-                    <th style="width: 20%; padding: 10px; border: 1px solid #0b8043;">Note</th>
-                    <th style="width: 20%; padding: 10px; border: 1px solid #0b8043;">Gợi ý tone màu quần áo</th>
+                <tr style="background: linear-gradient(180deg, #0f9d58 0%, #0b8043 100%); color: #ffffff; text-align: center; font-weight: bold; font-size: 15px;">
+                    <th style="width: 14%; padding: 12px; border: 1px solid #0b8043;">⏰ Thời gian</th>
+                    <th style="width: 32%; padding: 12px; border: 1px solid #0b8043;">🗺️ Lịch Trình</th>
+                    <th style="width: 14%; padding: 12px; border: 1px solid #0b8043;">📍 Google Maps</th>
+                    <th style="width: 20%; padding: 12px; border: 1px solid #0b8043;">📝 Note</th>
+                    <th style="width: 20%; padding: 12px; border: 1px solid #0b8043;">👗 Gợi ý tone màu quần áo</th>
                 </tr>
             </thead>
             <tbody>
@@ -300,8 +317,8 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
         </table>
         """
 
-        with st.expander("👁️ Xem trước Bảng Google Sheets (5 Cột)", expanded=True):
-            st.dataframe(df_sheet, use_container_width=True)
+        with st.expander("👁️ Xem trước Bảng Google Sheets (Phân Loại Theo Ngày)", expanded=True):
+            st.markdown(full_html_table, unsafe_allow_html=True)
 
         col_doc1, col_doc2 = st.columns([1, 1])
         with col_doc1:
@@ -342,7 +359,7 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
             <button onclick="openAndCopySheets()" style="width:100%; padding: 10px 16px; background-color:#0f9d58; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:15px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
                 📊 Mở Trực Tiếp & Điền Đầy Đủ Google Sheets
             </button>
-            <div id="status" style="margin-top:6px; font-size:12px; color:#0b8043; font-weight:bold;"></div>
+            <div id="status" style="margin-top:8px; font-size:13px; color:#0b8043; background:#e6f4ea; padding:8px; border-radius:4px; font-weight:bold;"></div>
             """
             if hasattr(st, "html"):
                 st.html(copy_html)
