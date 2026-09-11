@@ -1,6 +1,153 @@
+import io
 import random
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import streamlit as st
 from utils.ai_helper import search_ai_recommendations
+
+
+def generate_excel_camanang(guide, dest_input):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Cẩm Nang Du Lịch"
+    ws.views.sheetView[0].showGridLines = True
+
+    # Title Banner Row
+    trip_title = guide.get("trip_title", f"Cẩm Nang Du Lịch {dest_input}")
+    ws.merge_cells("A1:E1")
+    title_cell = ws["A1"]
+    title_cell.value = f"🧳 {trip_title.upper()}"
+    title_cell.font = Font(name="Segoe UI", size=14, bold=True, color="FFFFFF")
+    title_cell.fill = PatternFill(start_color="1A73E8", end_color="1A73E8", fill_type="solid")
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 36
+
+    # Sub-info Row
+    weather_info = f"🌤️ Thời tiết: {guide.get('weather_vibe', '')} | 💰 Chi phí dự kiến: {guide.get('estimated_total_cost', '')}"
+    ws.merge_cells("A2:E2")
+    sub_cell = ws["A2"]
+    sub_cell.value = weather_info
+    sub_cell.font = Font(name="Segoe UI", size=10, italic=True, color="333333")
+    sub_cell.fill = PatternFill(start_color="F1F3F4", end_color="F1F3F4", fill_type="solid")
+    sub_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[2].height = 24
+
+    ws.row_dimensions[3].height = 8
+
+    # Header Row (Row 4)
+    headers = ["⏰ Thời gian", "🗺️ Lịch Trình", "📍 Google Maps", "📝 Note", "👗 Gợi ý tone màu quần áo"]
+    header_fill = PatternFill(start_color="0F9D58", end_color="0F9D58", fill_type="solid") # Google Sheets Green
+    header_font = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
+    center_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    left_align = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    
+    thin_border = Border(
+        left=Side(style='thin', color='DCDCDC'),
+        right=Side(style='thin', color='DCDCDC'),
+        top=Side(style='thin', color='DCDCDC'),
+        bottom=Side(style='thin', color='DCDCDC')
+    )
+
+    for col_idx, h_text in enumerate(headers, start=1):
+        cell = ws.cell(row=4, column=col_idx, value=h_text)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = center_align
+    ws.row_dimensions[4].height = 28
+
+    current_row = 5
+    outfit_general = guide.get("outfit_guide", {})
+    gen_colors = ", ".join(outfit_general.get("recommended_colors", []))
+    gen_style = outfit_general.get("style_name", "")
+    fallback_outfit = f"Tone: {gen_colors} ({gen_style})" if gen_colors else gen_style
+
+    day_list = guide.get("day_by_day_itinerary", [])
+    day_fill = PatternFill(start_color="E6F4EA", end_color="E6F4EA", fill_type="solid")
+    day_font = Font(name="Segoe UI", size=12, bold=True, color="0D652D")
+
+    for day_idx, day_item in enumerate(day_list):
+        day_title = day_item.get("day_title", f"Ngày {day_idx+1}").strip()
+        day_header_text = f"📌 {day_title.upper()}"
+        
+        # Merge A:E for Day Section Header
+        ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=5)
+        day_cell = ws.cell(row=current_row, column=1, value=day_header_text)
+        day_cell.font = day_font
+        day_cell.fill = day_fill
+        day_cell.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+        ws.row_dimensions[current_row].height = 30
+
+        for col in range(1, 6):
+            ws.cell(row=current_row, column=col).border = Border(
+                top=Side(style='medium', color='0B8043'),
+                bottom=Side(style='medium', color='0B8043')
+            )
+
+        current_row += 1
+
+        activities = day_item.get("activities", [])
+        for act_idx, act in enumerate(activities):
+            time_range = act.get('time', '').strip()
+            title = act.get('title', '').strip()
+            loc = act.get('location', '').strip()
+            desc = act.get('description', '').strip()
+            
+            itinerary_val = f"{title}\nĐịa chỉ: {loc}\nTrải nghiệm: {desc}" if loc else f"{title}\nTrải nghiệm: {desc}"
+            maps_url = f"https://www.google.com/maps/search/?api=1&query={title}+{loc}".replace(" ", "+")
+            
+            notes = []
+            if act.get('route_note'):
+                notes.append(f"🚏 Đường đi: {act.get('route_note').strip()}")
+            if act.get('pro_tip'):
+                notes.append(f"💡 Mẹo local: {act.get('pro_tip').strip()}")
+            note_val = "\n".join(notes) if notes else "—"
+
+            outfit_val = act.get('outfit_suggestion') or fallback_outfit or "Trang phục năng động, thoải mái"
+
+            c1 = ws.cell(row=current_row, column=1, value=f"⏰ {time_range}")
+            c2 = ws.cell(row=current_row, column=2, value=itinerary_val)
+            c3 = ws.cell(row=current_row, column=3, value="🗺️ Xem Maps")
+            c3.hyperlink = maps_url
+            c4 = ws.cell(row=current_row, column=4, value=note_val)
+            c5 = ws.cell(row=current_row, column=5, value=f"👗 {outfit_val}")
+
+            bg_color = "FFFFFF" if act_idx % 2 == 0 else "F9FBF9"
+            row_fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type="solid")
+
+            c1.font = Font(name="Segoe UI", size=10, bold=True, color="1A73E8")
+            c1.alignment = center_align
+            
+            c2.font = Font(name="Segoe UI", size=10, color="333333")
+            c2.alignment = left_align
+
+            c3.font = Font(name="Segoe UI", size=10, bold=True, color="0F9D58", underline="single")
+            c3.alignment = center_align
+
+            c4.font = Font(name="Segoe UI", size=9, color="555555")
+            c4.alignment = left_align
+
+            c5.font = Font(name="Segoe UI", size=10, bold=True, color="D93025")
+            c5.alignment = left_align
+
+            for c in [c1, c2, c3, c4, c5]:
+                c.fill = row_fill
+                c.border = thin_border
+
+            ws.row_dimensions[current_row].height = 50
+            current_row += 1
+
+    # Widths
+    ws.column_dimensions['A'].width = 18
+    ws.column_dimensions['B'].width = 42
+    ws.column_dimensions['C'].width = 16
+    ws.column_dimensions['D'].width = 32
+    ws.column_dimensions['E'].width = 32
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output.getvalue()
+
 
 def render_tour_guide_sidebar():
     selected_origin = st.selectbox(
@@ -320,13 +467,15 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
         with st.expander("👁️ Xem trước Bảng Google Sheets (Phân Loại Theo Ngày)", expanded=True):
             st.markdown(full_html_table, unsafe_allow_html=True)
 
+        excel_data = generate_excel_camanang(guide, dest_input)
+
         col_doc1, col_doc2 = st.columns([1, 1])
         with col_doc1:
             st.download_button(
-                label="📥 Tải tệp CSV / Excel Đầy Đủ (.csv)",
-                data=csv_data.encode("utf-8-sig"),
-                file_name=f"Cam_Nang_Du_Lich_{dest_input}.csv",
-                mime="text/csv",
+                label="📥 Tải Tệp Excel Cẩm Nang Du Lịch (.xlsx)",
+                data=excel_data,
+                file_name=f"Cam_Nang_Du_Lich_{dest_input}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
                 type="primary"
             )
@@ -346,17 +495,17 @@ def render_tour_guide_main(selected_origin, selected_duration_guide, selected_ti
                         'text/plain': blobText
                     }});
                     navigator.clipboard.write([item]).then(function() {{
-                        document.getElementById('status').innerHTML = '✅ <b>Đã chép dữ liệu 5 cột!</b> Bấm Ctrl+V tại Google Sheets!';
+                        document.getElementById('status').innerHTML = '✅ <b>Đã chép dữ liệu 5 cột!</b> Mở Google Sheets bấm Ctrl+V!';
                     }}).catch(function(err) {{
                         navigator.clipboard.writeText(tsvText);
-                        document.getElementById('status').innerHTML = '✅ <b>Đã chép dữ liệu TSV 5 cột!</b> Bấm Ctrl+V tại Google Sheets!';
+                        document.getElementById('status').innerHTML = '✅ <b>Đã chép dữ liệu TSV 5 cột!</b> Mở Google Sheets bấm Ctrl+V!';
                     }});
                 }} catch (e) {{
                     const tsvFallback = `{escaped_tsv}`;
                     if (navigator.clipboard && navigator.clipboard.writeText) {{
                         navigator.clipboard.writeText(tsvFallback);
                     }}
-                    document.getElementById('status').innerHTML = '✅ <b>Đã chép dữ liệu 5 cột!</b> Bấm Ctrl+V tại Google Sheets!';
+                    document.getElementById('status').innerHTML = '✅ <b>Đã chép dữ liệu 5 cột!</b> Mở Google Sheets bấm Ctrl+V!';
                 }}
             }}
             </script>
